@@ -1,52 +1,50 @@
 version: '3.3'
 
 services:
-  # Nginx Proxy Manager
-  proxy:
-    image: 'jc21/nginx-proxy-manager:latest'
-    restart: unless-stopped
-    ports:
-      # Nuevos puertos públicos no estándar
-      - '8080:80'
-      - '8443:443'
-      # Puerto para acceder a la interfaz de admin
-      - '81:81'
-    volumes:
-      - ./proxy-data:/data
-      - ./letsencrypt:/etc/letsencrypt
-
   frontend:
     build: ./frontend
     restart: unless-stopped
-    depends_on:
-      - backend
+    ports:
+      # Mapeamos el puerto 8080 del anfitrión (Pi) al puerto 3000 del contenedor (frontend).
+      # El router ya está redirigiendo el tráfico de internet del puerto 8080 al 8080 de nuestra Pi.
+      - "8080:3000"
 
-  backend:
-    build: ./backend
-    restart: unless-stopped
-    environment:
-      - NODE_ENV=production
-      - PORT=5000
-      - DATABASE_URL=postgresql://postgres:password@db:5432/lista_compra
-    depends_on:
-      - db
+  # --- Servicios desactivados temporalmente ---
+  # Los volveremos a activar uno por uno más adelante.
 
-  db:
-    image: postgres:15
-    restart: unless-stopped
-    environment:
-      - POSTGRES_DB=lista_compra
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+  # backend:
+  #   build: ./backend
+  #   restart: unless-stopped
+  #   environment:
+  #     DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+  #     NODE_ENV: production
+  #   depends_on:
+  #     - db
 
-volumes:
-  postgres_data:
-  proxy-data:
+  # db:
+  #   image: postgres:15
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: ${POSTGRES_DB}
+  #     POSTGRES_USER: ${POSTGRES_USER}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #     - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # proxy:
+  #   image: jc21/nginx-proxy-manager:latest
+  #   restart: unless-stopped
+  #   ports:
+  #     # These ports are in format <host-port>:<container-port>
+  #     - '8080:80' # Public HTTP Port
+  #     - '8443:443' # Public HTTPS Port
+  #     - '81:81' # Admin Web Port
+  #   volumes:
+  #     - proxy-data:/data
+  #     - ./letsencrypt:/etc/letsencrypt
+
+# Es necesario comentar los volúmenes para que Docker Compose no se queje de que no se usan.
+# volumes:
+#   postgres_data:
+#   proxy-data:
