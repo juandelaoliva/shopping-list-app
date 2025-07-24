@@ -5,17 +5,7 @@ services:
     build: ./frontend
     ports:
       - "3000:3000"
-    environment:
-      - REACT_APP_API_URL=http://localhost:5001
-      - WATCHPACK_POLLING=true
-      - FAST_REFRESH=true
-      - WDS_SOCKET_HOST=localhost
-      - CHOKIDAR_USEPOLLING=true
-    volumes:
-      - ./frontend/src:/app/src
-      - ./frontend/public:/app/public
-      - ./frontend/package.json:/app/package.json
-      - /app/node_modules
+    restart: unless-stopped
     depends_on:
       - backend
 
@@ -23,8 +13,9 @@ services:
     build: ./backend
     ports:
       - "5001:5000"
+    restart: unless-stopped
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - PORT=5000
       - DATABASE_URL=postgresql://postgres:password@db:5432/lista_compra
     depends_on:
@@ -32,12 +23,11 @@ services:
 
   db:
     image: postgres:15
+    restart: unless-stopped
     environment:
       - POSTGRES_DB=lista_compra
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
