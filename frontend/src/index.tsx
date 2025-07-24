@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
+import api from './services/api'; // Importamos la instancia centralizada
 
 /* ========================================
    AUTH CONTEXT
@@ -87,36 +88,24 @@ const AuthScreen = () => {
     setLoading(true);
     setError(null);
 
-    const url = isLogin 
-      ? 'http://localhost:5001/api/auth/login' 
-      : 'http://localhost:5001/api/auth/register';
-
+    const endpoint = isLogin ? '/auth/login' : '/auth/register';
     const payload = isLogin
-      ? { loginIdentifier: email, password } // En login, el campo "email" actúa como "loginIdentifier"
+      ? { loginIdentifier: email, password }
       : { username, email, password, passwordConfirmation };
 
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Algo salió mal');
-      }
+      const response = await api.post(endpoint, payload);
+      const data = response.data;
 
       if (isLogin) {
         login(data.token, data.user);
       } else {
-        // Después de registrarse, pedirle que inicie sesión
         setIsLogin(true);
         setError('¡Registro exitoso! Ahora puedes iniciar sesión.');
       }
     } catch (err: any) {
-      setError(err.message);
+      const errorMessage = err.response?.data?.error || err.message || 'Algo salió mal';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -369,32 +358,25 @@ const HomeScreen = ({ onNavigate }: { onNavigate: (view: string, listId?: number
   const [showEditListModal, setShowEditListModal] = React.useState(false);
   const [editingList, setEditingList] = React.useState<List | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
-  const { token, logout, user } = useAuth(); // Obtener token, logout y user
+  const { logout, user } = useAuth(); // No necesitamos el token aquí
 
-  const loadLists = async () => {
-    if (!token) return;
+  const loadLists = React.useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/shopping-lists', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      setLists(data);
+      setLoading(true);
+      const response = await api.get('/shopping-lists');
+      setLists(response.data);
     } catch (error) {
       console.error('Error loading lists:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const deleteList = async (listId: number) => {
     if (!window.confirm('¿Estás seguro de que quieres eliminar esta lista?')) return;
-    if (!token) return;
     
     try {
-      await fetch(`http://localhost:5001/api/shopping-lists/${listId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      await api.delete(`/shopping-lists/${listId}`);
       setLists(lists.filter(list => list.id !== listId));
     } catch (error) {
       console.error('Error deleting list:', error);
@@ -408,7 +390,7 @@ const HomeScreen = ({ onNavigate }: { onNavigate: (view: string, listId?: number
 
   React.useEffect(() => {
     loadLists();
-  }, [token]);
+  }, [loadLists]);
 
   const filteredLists = lists.filter(list =>
     list.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -732,44 +714,37 @@ const ListDetailScreen = ({
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [showEditItemModal, setShowEditItemModal] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<ListItem | null>(null);
-  const { token } = useAuth(); // Obtener token
 
-  const loadListData = async () => {
-    if (!token) return;
+  const loadListData = React.useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:5001/api/shopping-lists/${listId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      setList(data);
-      setItems(data.items || []);
+      setLoading(true);
+      const response = await api.get(`/shopping-lists/${listId}`);
+      setList(response.data);
+      setItems(response.data.items || []);
     } catch (error) {
       console.error('Error loading list:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [listId]);
 
   React.useEffect(() => {
     loadListData();
-  }, [listId, token]);
+  }, [loadListData]);
 
   const toggleItem = async (itemId: number, isPurchased: boolean) => {
-    if (!token) return;
     try {
-      await fetch(`http://localhost:5001/api/shopping-lists/${listId}/items/${itemId}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ is_purchased: !isPurchased })
-      });
-      setItems(items.map(item => 
+      await api.put(`/shopping-lists/${listId}/items/${itemId}`, { is_purchased: !isPurchased });
+      // Actualización optimista de la UI
+      const updatedItems = items.map(item => 
         item.id === itemId ? { ...item, is_purchased: !isPurchased } : item
-      ));
+      );
+      setItems(updatedItems);
+      // Recargar datos para consistencia (opcional, pero seguro)
+      loadListData();
     } catch (error) {
       console.error('Error toggling item:', error);
+      // Revertir en caso de error (opcional)
     }
   };
 
@@ -780,13 +755,9 @@ const ListDetailScreen = ({
 
   const deleteItem = async (itemId: number) => {
     if (!window.confirm('¿Estás seguro de que quieres eliminar este producto?')) return;
-    if (!token) return;
     
     try {
-      await fetch(`http://localhost:5001/api/shopping-lists/${listId}/items/${itemId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      await api.delete(`/shopping-lists/${listId}/items/${itemId}`);
       setItems(items.filter(item => item.id !== itemId));
       loadListData(); // Recargar para actualizar totales
     } catch (error) {
@@ -1177,28 +1148,25 @@ const ProductsScreen = ({
   const [showNewProductModal, setShowNewProductModal] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
 
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     try {
+      setLoading(true);
       const [productsRes, categoriesRes] = await Promise.all([
-        fetch('http://localhost:5001/api/products'),
-        fetch('http://localhost:5001/api/categories')
+        api.get('/products'),
+        api.get('/categories')
       ]);
-      const [productsData, categoriesData] = await Promise.all([
-        productsRes.json(),
-        categoriesRes.json()
-      ]);
-      setProducts(productsData);
-      setCategories(categoriesData);
+      setProducts(productsRes.data);
+      setCategories(categoriesRes.data);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   React.useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const editProduct = (product: Product) => {
     setEditingProduct(product);
@@ -1209,9 +1177,7 @@ const ProductsScreen = ({
     if (!window.confirm('¿Estás seguro de que quieres eliminar este producto?')) return;
     
     try {
-      await fetch(`http://localhost:5001/api/products/${productId}`, {
-        method: 'DELETE'
-      });
+      await api.delete(`/products/${productId}`);
       setProducts(products.filter(product => product.id !== productId));
     } catch (error) {
       console.error('Error deleting product:', error);
@@ -1554,10 +1520,9 @@ const NewListModal = ({
   const [name, setName] = React.useState('');
   const [description, setDescription] = React.useState('');
   const [totalBudget, setTotalBudget] = React.useState('');
-  const { token } = useAuth(); // Obtener token
 
   const handleSave = async () => {
-    if (!name.trim() || !token) return;
+    if (!name.trim()) return;
     
     try {
       const payload = {
@@ -1566,16 +1531,8 @@ const NewListModal = ({
         total_budget: totalBudget ? parseFloat(totalBudget) : null
       };
 
-      const response = await fetch('http://localhost:5001/api/shopping-lists', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-      
-      const newList = await response.json();
+      const response = await api.post('/shopping-lists', payload);
+      const newList = response.data;
       onSave();
       onClose();
       // Navegar automáticamente a la lista creada
@@ -1670,22 +1627,18 @@ const AddItemModal = ({
   const [quantity, setQuantity] = React.useState(1);
   const [isCreatingNew, setIsCreatingNew] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
-  const { token } = useAuth(); // Obtener token
 
   // Cargar productos y categorías al abrir el modal
   React.useEffect(() => {
     const loadData = async () => {
       try {
+        setLoading(true);
         const [productsRes, categoriesRes] = await Promise.all([
-          fetch('http://localhost:5001/api/products'),
-          fetch('http://localhost:5001/api/categories')
+          api.get('/products'),
+          api.get('/categories')
         ]);
-        const [productsData, categoriesData] = await Promise.all([
-          productsRes.json(),
-          categoriesRes.json()
-        ]);
-        setProducts(productsData);
-        setCategories(categoriesData);
+        setProducts(productsRes.data);
+        setCategories(categoriesRes.data);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -1734,7 +1687,6 @@ const AddItemModal = ({
   }, [products, searchTerm, selectedCategory, sortBy]);
 
   const handleSave = async () => {
-    if (!token) return;
     if (isCreatingNew && !customName.trim()) return;
     if (!isCreatingNew && !selectedProduct) return;
     
@@ -1750,13 +1702,8 @@ const AddItemModal = ({
           unit: newProductUnit
         };
         
-        const productResponse = await fetch('http://localhost:5001/api/products', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newProductData)
-        });
-        
-        const createdProduct = await productResponse.json();
+        const productResponse = await api.post('/products', newProductData);
+        const createdProduct = productResponse.data;
         
         // Luego añadir el producto creado a la lista
         payload = {
@@ -1774,14 +1721,7 @@ const AddItemModal = ({
         };
       }
 
-      await fetch(`http://localhost:5001/api/shopping-lists/${listId}/items`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
+      await api.post(`/shopping-lists/${listId}/items`, payload);
       onSave();
       onClose();
     } catch (error) {
@@ -2087,23 +2027,15 @@ const EditListModal = ({
   const [name, setName] = React.useState(list.name);
   const [description, setDescription] = React.useState(list.description || '');
   const [totalBudget, setTotalBudget] = React.useState(list.total_budget?.toString() || '');
-  const { token } = useAuth(); // Obtener token
 
   const handleSave = async () => {
-    if (!name.trim() || !token) return;
+    if (!name.trim()) return;
     
     try {
-      await fetch(`http://localhost:5001/api/shopping-lists/${list.id}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
+      await api.put(`/shopping-lists/${list.id}`, { 
           name: name.trim(),
           description: description.trim() || null,
           total_budget: totalBudget ? parseFloat(totalBudget) : null
-        })
       });
       onSave();
       onClose();
@@ -2184,22 +2116,13 @@ const EditItemModal = ({
   const [quantity, setQuantity] = React.useState(item.quantity);
   const [estimatedPrice, setEstimatedPrice] = React.useState(item.estimated_price?.toString() || '');
   const [notes, setNotes] = React.useState(item.notes || '');
-  const { token } = useAuth(); // Obtener token
 
   const handleSave = async () => {
-    if (!token) return;
     try {
-      await fetch(`http://localhost:5001/api/shopping-lists/${listId}/items/${item.id}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          quantity,
-          estimated_price: estimatedPrice ? parseFloat(estimatedPrice) : null,
-          notes: notes.trim() || null
-        })
+      await api.put(`/shopping-lists/${listId}/items/${item.id}`, {
+        quantity,
+        estimated_price: estimatedPrice ? parseFloat(estimatedPrice) : null,
+        notes: notes.trim() || null
       });
       onSave();
       onClose();
@@ -2290,11 +2213,7 @@ const EditProductModal = ({
         unit: unit
       };
 
-      await fetch(`http://localhost:5001/api/products/${product.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedProductData)
-      });
+      await api.put(`/products/${product.id}`, updatedProductData);
       onSave();
       onClose();
     } catch (error) {
@@ -2413,11 +2332,7 @@ const NewProductModal = ({
         unit: unit
       };
 
-      await fetch('http://localhost:5001/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProductData)
-      });
+      await api.post('/products', newProductData);
       onSave();
       onClose();
     } catch (error) {

@@ -14,11 +14,25 @@ import {
 const API_BASE_URL = ''; // Se elimina la URL hardcodeada
 
 const api = axios.create({
-  baseURL: `${API_BASE_URL}/api`,
+  baseURL: '/api', // La base ahora es relativa
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+// Interceptor para añadir el token a cada petición
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // Interceptor para manejo de errores
 api.interceptors.response.use(
