@@ -6,6 +6,7 @@ import ListPage from './pages/ListPage';
 import './index.css';
 
 function App() {
+  console.log('App Version: 1.0.1'); // Cache buster
   return (
     <Router>
       <Routes>
