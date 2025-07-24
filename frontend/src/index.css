@@ -1,0 +1,740 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========================================
+   MODERN MOBILE-FIRST DESIGN SYSTEM 
+   Professional UX/UI Design
+======================================== */
+
+@layer base {
+  /* Reset y configuración base */
+  * {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  input, textarea, button {
+    -webkit-user-select: auto;
+    user-select: auto;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: #f8fafc;
+    line-height: 1.5;
+    overscroll-behavior: none;
+  }
+
+  /* Safe areas para dispositivos con notch */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@layer components {
+  /* =====================================
+     LAYOUT CONTAINERS
+  ===================================== */
+  
+  .app-container {
+    @apply min-h-screen bg-slate-50;
+    @apply flex flex-col;
+    @apply relative overflow-hidden;
+  }
+
+  .mobile-header {
+    @apply fixed top-0 left-0 right-0 z-50;
+    @apply bg-white/95 backdrop-blur-md;
+    @apply border-b border-slate-200;
+    @apply px-4 py-3 safe-area-top;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  }
+
+  .mobile-content {
+    @apply flex-1 overflow-y-auto;
+    @apply pb-20; /* Space for header and bottom nav */
+    @apply px-4 py-6;
+    @apply pt-24;
+  }
+
+  .bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 z-50;
+    @apply bg-white/95 backdrop-blur-md;
+    @apply border-t border-slate-200;
+    @apply px-4 py-2 safe-area-bottom;
+    box-shadow: 0 -1px 3px 0 rgb(0 0 0 / 0.1);
+  }
+
+  /* =====================================
+     MODERN BUTTON SYSTEM
+  ===================================== */
+  
+  .btn {
+    @apply inline-flex items-center justify-center;
+    @apply rounded-xl font-medium text-sm;
+    @apply transition-all duration-200 ease-out;
+    @apply min-h-[48px] px-6; /* 48px minimum touch target */
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply active:scale-95; /* Micro-interaction feedback */
+    touch-action: manipulation;
+  }
+
+  .btn-primary {
+    @apply btn bg-indigo-600 text-white;
+    @apply hover:bg-indigo-700 active:bg-indigo-800;
+    @apply focus:ring-indigo-500;
+    @apply shadow-lg shadow-indigo-600/25;
+  }
+
+  .btn-secondary {
+    @apply btn bg-slate-100 text-slate-700;
+    @apply hover:bg-slate-200 active:bg-slate-300;
+    @apply focus:ring-slate-500;
+  }
+
+  .btn-success {
+    @apply btn bg-emerald-600 text-white;
+    @apply hover:bg-emerald-700 active:bg-emerald-800;
+    @apply focus:ring-emerald-500;
+    @apply shadow-lg shadow-emerald-600/25;
+  }
+
+  .btn-danger {
+    @apply btn bg-red-600 text-white;
+    @apply hover:bg-red-700 active:bg-red-800;
+    @apply focus:ring-red-500;
+    @apply shadow-lg shadow-red-600/25;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-slate-600;
+    @apply hover:bg-slate-100 active:bg-slate-200;
+    @apply focus:ring-slate-500;
+  }
+
+  /* Button sizes */
+  .btn-sm {
+    @apply min-h-[40px] px-4 text-xs;
+  }
+
+  .btn-lg {
+    @apply min-h-[56px] px-8 text-base;
+  }
+
+  .btn-icon {
+    @apply min-h-[48px] w-12 p-0;
+  }
+
+  /* =====================================
+     FLOATING ACTION BUTTON (FAB)
+  ===================================== */
+  
+  .fab {
+    @apply fixed bottom-20 right-4 z-40;
+    @apply w-14 h-14 rounded-full;
+    @apply bg-indigo-300 text-white;
+    @apply shadow-2xl shadow-indigo-600/30;
+    @apply flex items-center justify-center;
+    @apply transition-all duration-300 ease-out;
+    @apply hover:scale-110 active:scale-95;
+    @apply focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2;
+  }
+
+  .fab:hover {
+    @apply bg-indigo-700;
+    transform: scale(1.1) translateY(-2px);
+  }
+
+  /* =====================================
+     MODERN CARD SYSTEM
+  ===================================== */
+  
+  .card {
+    @apply bg-white rounded-2xl;
+    @apply border border-slate-200;
+    @apply transition-all duration-200 ease-out;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  }
+
+  .card-interactive {
+    @apply card cursor-pointer;
+    @apply hover:shadow-xl hover:shadow-slate-200/50;
+    @apply hover:-translate-y-1;
+    @apply active:translate-y-0 active:shadow-lg;
+  }
+
+  .card-header {
+    @apply p-6 pb-4;
+  }
+
+  .card-content {
+    @apply p-6;
+  }
+
+  .card-footer {
+    @apply p-6 pt-4;
+    @apply border-t border-slate-100;
+    @apply flex items-center justify-between;
+  }
+
+  .card-title {
+    @apply text-lg font-semibold text-slate-900;
+    @apply leading-tight;
+  }
+
+  .card-subtitle {
+    @apply text-sm text-slate-600;
+    @apply mt-1;
+  }
+
+  /* =====================================
+     FORM ELEMENTS
+  ===================================== */
+  
+  .form-group {
+    @apply space-y-2;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-slate-700;
+  }
+
+  .form-input {
+    @apply w-full px-4 py-3;
+    @apply bg-white border border-slate-200 rounded-xl;
+    @apply text-base text-slate-900; /* 16px to prevent zoom on iOS */
+    @apply placeholder:text-slate-400;
+    @apply transition-all duration-200 ease-out;
+    @apply focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500;
+    @apply disabled:bg-slate-50 disabled:text-slate-500;
+  }
+
+  .form-input:focus {
+    @apply shadow-lg shadow-indigo-600/10;
+    transform: translateY(-1px);
+  }
+
+  .form-textarea {
+    @apply form-input resize-none;
+    @apply min-h-[100px];
+  }
+
+  .form-select {
+    @apply form-input;
+    @apply appearance-none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 12px center;
+    background-repeat: no-repeat;
+    background-size: 16px;
+    padding-right: 40px;
+  }
+
+  /* =====================================
+     MOBILE NAVIGATION
+  ===================================== */
+  
+  .nav-item {
+    @apply flex flex-col items-center justify-center;
+    @apply min-h-[48px] px-2 py-1;
+    @apply text-xs font-medium;
+    @apply transition-all duration-200 ease-out;
+    @apply rounded-lg;
+  }
+
+  .nav-item-active {
+    @apply nav-item text-indigo-600 bg-indigo-50;
+  }
+
+  .nav-item-inactive {
+    @apply nav-item text-slate-500;
+    @apply hover:text-slate-700 hover:bg-slate-100;
+  }
+
+  .nav-icon {
+    @apply w-6 h-6 mb-1;
+  }
+
+  /* =====================================
+     SWIPE ACTIONS
+  ===================================== */
+  
+  .swipe-item {
+    @apply relative overflow-hidden;
+    @apply bg-white rounded-xl;
+    @apply transition-transform duration-200 ease-out;
+  }
+
+  .swipe-actions {
+    @apply absolute top-0 right-0 bottom-0;
+    @apply flex items-center;
+    @apply px-4 space-x-2;
+  }
+
+  .swipe-action {
+    @apply w-12 h-12 rounded-xl;
+    @apply flex items-center justify-center;
+    @apply text-white font-medium;
+    @apply transition-all duration-200 ease-out;
+  }
+
+  .swipe-edit {
+    @apply swipe-action bg-amber-500;
+    @apply hover:bg-amber-600;
+  }
+
+  .swipe-delete {
+    @apply swipe-action bg-red-500;
+    @apply hover:bg-red-600;
+  }
+
+  /* =====================================
+     PROGRESS & FEEDBACK
+  ===================================== */
+  
+  .progress-ring {
+    @apply relative w-16 h-16;
+  }
+
+  .progress-circle {
+    @apply w-full h-full;
+    transform: rotate(-90deg);
+  }
+
+  .progress-path {
+    fill: none;
+    stroke-width: 4;
+    stroke-linecap: round;
+  }
+
+  .progress-bg {
+    @apply progress-path stroke-slate-200;
+  }
+
+  .progress-fill {
+    @apply progress-path stroke-indigo-600;
+    transition: stroke-dashoffset 0.5s ease-out;
+  }
+
+  .badge {
+    @apply inline-flex items-center justify-center;
+    @apply px-2 py-1 rounded-full;
+    @apply text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply badge bg-emerald-100 text-emerald-700;
+  }
+
+  .badge-warning {
+    @apply badge bg-amber-100 text-amber-700;
+  }
+
+  .badge-error {
+    @apply badge bg-red-100 text-red-700;
+  }
+
+  /* =====================================
+     MODERN MODAL SYSTEM
+  ===================================== */
+  
+  .modal-overlay {
+    @apply fixed inset-0 z-50;
+    @apply bg-black/50 backdrop-blur-sm;
+    @apply flex items-end justify-center;
+    @apply p-0;
+  }
+
+  .modal-content {
+    @apply w-full max-w-lg;
+    @apply bg-white rounded-t-3xl;
+    @apply shadow-2xl;
+    @apply transform transition-all duration-300 ease-out;
+    @apply max-h-[90vh] overflow-y-auto;
+  }
+
+  .modal-handle {
+    @apply w-12 h-1 bg-slate-300 rounded-full;
+    @apply mx-auto my-3;
+  }
+
+  .modal-header {
+    @apply px-6 py-4;
+    @apply border-b border-slate-100;
+  }
+
+  .modal-body {
+    @apply px-6 py-6;
+  }
+
+  .modal-footer {
+    @apply px-6 py-4;
+    @apply border-t border-slate-100;
+    @apply flex space-x-3;
+  }
+
+  /* =====================================
+     LISTS & ITEMS
+  ===================================== */
+  
+  .list-item {
+    @apply flex items-center space-x-4;
+    @apply p-4 bg-white rounded-xl;
+    @apply border border-slate-200;
+    @apply transition-all duration-200 ease-out;
+  }
+
+  .list-item-interactive {
+    @apply list-item cursor-pointer;
+    @apply hover:shadow-md hover:border-slate-300;
+    @apply active:scale-95;
+  }
+
+  /* =====================================
+     MODERN SHOPPING ITEMS
+  ===================================== */
+  
+  .shopping-item {
+    @apply relative flex items-center space-x-4;
+    @apply py-4 pl-4 pr-24 bg-white rounded-xl;
+    @apply border border-slate-200;
+    @apply transition-all duration-300 ease-out;
+    @apply overflow-hidden;
+  }
+
+  .shopping-item:hover {
+    @apply shadow-md border-slate-300;
+    transform: translateY(-1px);
+  }
+
+  .shopping-item-completed {
+    @apply bg-emerald-50 border-emerald-200;
+    @apply opacity-75;
+  }
+
+  .shopping-item-animating {
+    @apply bg-emerald-100 border-emerald-300;
+    transform: scale(1.02);
+  }
+
+  /* Área clickeable a la derecha */
+  .shopping-item-toggle {
+    @apply absolute top-0 right-0 bottom-0;
+    @apply w-20 flex items-center justify-center;
+    @apply cursor-pointer;
+    @apply transition-all duration-200 ease-out;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.8) 30%, rgba(255,255,255,0.95) 100%);
+  }
+
+  .shopping-item-toggle:hover {
+    background: linear-gradient(90deg, transparent 0%, rgba(99, 102, 241, 0.1) 30%, rgba(99, 102, 241, 0.15) 100%);
+  }
+
+  .shopping-item-toggle-inner {
+    @apply w-12 h-12 rounded-full;
+    @apply flex items-center justify-center;
+    @apply transition-all duration-200 ease-out;
+    @apply border-2 border-slate-200;
+    @apply bg-white shadow-sm;
+  }
+
+  .shopping-item-toggle:hover .shopping-item-toggle-inner {
+    @apply border-indigo-300 bg-indigo-50;
+    transform: scale(1.1);
+  }
+
+  /* Estados del toggle */
+  .pending-circle {
+    @apply w-6 h-6 rounded-full;
+    @apply border-2 border-slate-300;
+    @apply transition-all duration-200 ease-out;
+  }
+
+  .shopping-item-toggle:hover .pending-circle {
+    @apply border-indigo-500 bg-indigo-100;
+  }
+
+  .completed-check {
+    @apply w-8 h-8 rounded-full;
+    @apply bg-emerald-500 text-white;
+    @apply flex items-center justify-center;
+    @apply text-lg font-bold;
+    @apply shadow-lg;
+    animation: completedPulse 2s infinite;
+  }
+
+  /* =====================================
+     ANIMACIONES DE COMPLETADO
+  ===================================== */
+  
+  .completion-animation {
+    @apply absolute inset-0;
+    @apply pointer-events-none;
+    @apply flex items-center justify-center;
+    @apply z-10;
+  }
+
+  .completion-ripple {
+    @apply absolute w-20 h-20 rounded-full;
+    @apply border-4 border-emerald-400;
+    @apply opacity-70;
+    animation: rippleEffect 0.6s ease-out;
+  }
+
+  .completion-check {
+    @apply text-3xl;
+    @apply text-emerald-500;
+    animation: checkBounce 0.6s ease-out;
+  }
+
+  .checkbox {
+    @apply w-6 h-6 rounded-full border-2;
+    @apply transition-all duration-200 ease-out;
+    @apply flex items-center justify-center;
+  }
+
+  .checkbox-unchecked {
+    @apply checkbox border-slate-300;
+    @apply hover:border-indigo-500;
+  }
+
+  .checkbox-checked {
+    @apply checkbox border-emerald-500 bg-emerald-500;
+    @apply text-white;
+  }
+
+  /* =====================================
+     ANIMATIONS & MICRO-INTERACTIONS
+  ===================================== */
+  
+  .fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .bounce-in {
+    animation: bounceIn 0.4s ease-out;
+  }
+
+  .pulse {
+    animation: pulse 2s infinite;
+  }
+
+  /* =====================================
+     LOADING STATES
+  ===================================== */
+  
+  .skeleton {
+    @apply bg-slate-200 rounded animate-pulse;
+  }
+
+  .loading-spinner {
+    @apply w-8 h-8 border-2 border-slate-200 border-t-indigo-600 rounded-full;
+    animation: spin 1s linear infinite;
+  }
+
+  /* =====================================
+     UTILITY CLASSES
+  ===================================== */
+  
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scroll-smooth {
+    scroll-behavior: smooth;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .glass {
+    @apply bg-white/80 backdrop-blur-md;
+  }
+
+  .gradient-primary {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  }
+
+  .gradient-success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  }
+
+  .thumb-zone {
+    /* Optimized for thumb navigation on mobile */
+    @apply pb-20; /* Extra space at bottom for thumb */
+  }
+}
+
+/* =====================================
+   KEYFRAME ANIMATIONS
+===================================== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes completedPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+  }
+}
+
+@keyframes rippleEffect {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes checkBounce {
+  0% {
+    transform: scale(0) rotate(-12deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.3) rotate(-6deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* =====================================
+   RESPONSIVE BREAKPOINTS
+===================================== */
+
+@media (min-width: 640px) {
+  .modal-overlay {
+    @apply items-center p-4;
+  }
+  
+  .modal-content {
+    @apply rounded-3xl max-h-[80vh];
+  }
+  
+  .mobile-header {
+    @apply px-6;
+  }
+  
+  .mobile-content {
+    @apply px-6;
+  }
+  
+  .fab {
+    @apply right-6;
+  }
+}
+
+/* =====================================
+   DARK MODE SUPPORT (Future)
+===================================== */
+
+@media (prefers-color-scheme: dark) {
+  .dark-mode {
+    /* Dark mode styles for future implementation */
+  }
+}
+
+/* =====================================
+   ACCESSIBILITY ENHANCEMENTS
+===================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .btn {
+    @apply border-2 border-current;
+  }
+} 
