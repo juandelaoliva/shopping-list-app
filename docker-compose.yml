@@ -1,19 +1,32 @@
 version: '3.3'
 
 services:
+  # Nginx Proxy Manager - NUEVO SERVICIO
+  proxy:
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: unless-stopped
+    ports:
+      # Puertos públicos que hemos abierto en el router
+      - '80:80'
+      - '443:443'
+      # Puerto para acceder a la interfaz de admin
+      - '81:81'
+    volumes:
+      - ./proxy-data:/data
+      - ./letsencrypt:/etc/letsencrypt
+
   frontend:
     build: ./frontend
-    ports:
-      - "3000:3000"
     restart: unless-stopped
+    # Ya no necesita exponer el puerto 3000 al exterior, 
+    # el proxy se encargará de ello.
     depends_on:
       - backend
 
   backend:
     build: ./backend
-    ports:
-      - "5001:5000"
     restart: unless-stopped
+    # Tampoco necesita exponer el puerto 5001 al exterior.
     environment:
       - NODE_ENV=production
       - PORT=5000
@@ -39,3 +52,4 @@ services:
 
 volumes:
   postgres_data:
+  proxy-data: # Nuevo volumen para el proxy
