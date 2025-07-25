@@ -12,7 +12,29 @@ import {
   CreateProductRequest,
 } from '../types';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '';
+// Detectar si estamos en desarrollo local o acceso desde red
+const getApiBaseUrl = () => {
+  // Si hay variable de entorno, usarla (PRODUCCIÓN)
+  const envApiUrl = (window as any).REACT_APP_API_BASE_URL;
+  if (envApiUrl) {
+    return envApiUrl;
+  }
+  
+  // PRODUCCIÓN: Si estamos en dominio vercel.app, usar backend en Railway
+  if (window.location.hostname.includes('vercel.app')) {
+    return 'https://showcaseantonio-production.up.railway.app';
+  }
+  
+  // Si estamos en localhost, usar localhost
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:5001';
+  }
+  
+  // Si estamos en una IP de red local, usar esa IP para el backend
+  return `http://${window.location.hostname}:5001`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
