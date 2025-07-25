@@ -12,6 +12,7 @@ RUN npm install
 
 # Copia el resto del código fuente
 COPY . .
+RUN ls -laR src
 
 # Construye la aplicación para producción
 RUN npm run build

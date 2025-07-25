@@ -4,7 +4,7 @@ import { Plus, Search, Filter } from 'lucide-react';
 import Header from '../components/Layout/Header';
 import ShoppingListCard from '../components/ShoppingList/ShoppingListCard';
 import { ShoppingList, CreateShoppingListRequest } from '../types';
-import { shoppingListService } from '../services/api';
+import { shoppingListService } from 'services/api';
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();

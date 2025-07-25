@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter } from 'lucide-react';
 import Header from '../components/Layout/Header';
 import { Product, CreateProductRequest, Category } from '../types';
-import { productService, categoryService } from '../services/api';
+import { productService, categoryService } from 'services/api';
 
 const ProductsPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);

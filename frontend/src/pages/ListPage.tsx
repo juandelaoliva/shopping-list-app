@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Plus, ArrowLeft } from 'lucide-react';
 import Header from '../components/Layout/Header';
 import { ShoppingList, ListItem as ListItemType, Product, CreateListItemRequest } from '../types';
-import { shoppingListService, productService } from '../services/api';
+import { shoppingListService, productService } from 'services/api';
 import ListItem from '../components/ShoppingList/ListItem';
 
 const ListPage: React.FC = () => {
