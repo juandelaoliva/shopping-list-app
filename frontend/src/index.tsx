@@ -1,11 +1,17 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import api from './services/api'; // Importamos la instancia centralizada
 import SupermarketsPage from './pages/SupermarketsPage';
 import { getContrastTextColor } from './components/ColorPicker';
 import * as serviceWorker from './sw-registration'; // PWA Service Worker
-// No GenericProductsPage import
+// Servicios Supabase
+import {
+  authService,
+  categoryService,
+  supermarketService,
+  productService,
+  shoppingListService
+} from './services/supabase-api';
 
 import {
   ShoppingList,
@@ -13,6 +19,7 @@ import {
   Product,
   Category,
   Supermarket,
+  User,
   CreateListItemRequest,
   UpdateListItemRequest,
   CreateShoppingListRequest,
@@ -22,7 +29,6 @@ import {
   ShoppingItemProps,
   ProductCardProps
 } from './types';
-import { productService } from './services/api';
 import BottomNavigation from './components/Layout/BottomNavigation';
 import { Icons } from './components/Layout/Icons';
 import ProductDetailScreen from './pages/ProductDetailScreen';
@@ -55,11 +61,7 @@ const createSupermarketBadge = (name: string, color?: string | null, size: 'xs' 
    Gestiona el estado de autenticación
 ======================================== */
 
-interface User {
-  id: number;
-  email: string;
-  username: string;
-}
+
 
 interface AuthContextType {
   token: string | null;
@@ -137,23 +139,24 @@ const AuthScreen = () => {
     setError(null);
     setSuccessMessage(null);
 
-    const endpoint = isLogin ? '/auth/login' : '/auth/register';
-    const payload = isLogin
-      ? { loginIdentifier: email, password }
-      : { username, email, password, passwordConfirmation };
-
     try {
-      const response = await api.post(endpoint, payload);
-      const data = response.data;
-
       if (isLogin) {
-        login(data.token, data.user);
+        // Login con Supabase
+        const { user } = await authService.login(email, password);
+        const localUser: User = { id: user.id, email: user.email || '', username: user.email };
+        login('supabase-token', localUser); // Token ficticio ya que Supabase maneja la sesión
       } else {
+        // Registro con Supabase
+        if (password !== passwordConfirmation) {
+          setError('Las contraseñas no coinciden');
+          return;
+        }
+        await authService.register(email, password);
         setIsLogin(true);
-        setSuccessMessage('¡Registro exitoso! Ahora puedes iniciar sesión.');
+        setSuccessMessage('¡Registro exitoso! Revisa tu email para confirmar tu cuenta.');
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || err.message || 'Algo salió mal';
+      const errorMessage = err.error?.message || err.message || 'Algo salió mal';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -348,9 +351,9 @@ const HomeScreen = ({ onNavigate }: { onNavigate: (view: string, listId?: number
   const loadLists = async () => {
     if (!token) return;
     try {
-      // Usamos el api service que ya tiene el token inyectado
-      const response = await api.get('/shopping-lists');
-      setLists(response.data);
+      // Usar servicio Supabase
+      const lists = await shoppingListService.getAll();
+      setLists(lists);
     } catch (error) {
       console.error('Error loading lists:', error);
     } finally {
@@ -363,7 +366,7 @@ const HomeScreen = ({ onNavigate }: { onNavigate: (view: string, listId?: number
     if (!token) return;
     
     try {
-      await api.delete(`/shopping-lists/${listId}`);
+      await shoppingListService.delete(listId);
       setLists(lists.filter(list => list.id !== listId));
     } catch (error) {
       console.error('Error deleting list:', error);
@@ -730,9 +733,9 @@ const ListDetailScreen = ({
   const loadListData = async () => {
     if (!token) return;
     try {
-      const response = await api.get(`/shopping-lists/${listId}`);
-      setList(response.data);
-      setItems(response.data.items || []);
+      const listData = await shoppingListService.getById(listId);
+      setList(listData);
+      setItems(listData.list_items || []);
     } catch (error) {
       console.error('Error loading list:', error);
     } finally {
@@ -747,7 +750,7 @@ const ListDetailScreen = ({
   const toggleItem = async (itemId: number, isPurchased: boolean) => {
     if (!token) return;
     try {
-      await api.put(`/shopping-lists/${listId}/items/${itemId}`, { is_purchased: !isPurchased });
+      await shoppingListService.updateItem(listId, itemId, { is_purchased: !isPurchased });
       setItems(items.map(item => 
         item.id === itemId ? { ...item, is_purchased: !isPurchased } : item
       ));
@@ -766,7 +769,7 @@ const ListDetailScreen = ({
     if (!token) return;
     
     try {
-      await api.delete(`/shopping-lists/${listId}/items/${itemId}`);
+      await shoppingListService.deleteItem(listId, itemId);
       setItems(items.filter(item => item.id !== itemId));
       loadListData(); // Recargar para actualizar totales
     } catch (error) {
@@ -1163,15 +1166,16 @@ const ProductsScreen = ({
 
   const loadData = async () => {
     try {
-      const [productsResponse, categoriesRes, supermarketsRes] = await Promise.all([
-        api.get('/products'),
-        api.get('/categories'),
-        api.get('/supermarkets'),
+      const [products, categories, supermarkets] = await Promise.all([
+        productService.getAll(),
+        categoryService.getAll(),
+        supermarketService.getAll(),
       ]);
-      setProducts(productsResponse.data.products);
-      setAlternativesMap(productsResponse.data.alternatives);
-      setCategories(categoriesRes.data);
-      setSupermarkets(supermarketsRes.data);
+      setProducts(products);
+      // TODO: implementar carga de alternativas con Supabase
+      setAlternativesMap({});
+      setCategories(categories);
+      setSupermarkets(supermarkets);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -1192,7 +1196,7 @@ const ProductsScreen = ({
     if (!window.confirm('¿Estás seguro de que quieres eliminar este producto?')) return;
     
     try {
-      await api.delete(`/products/${productId}`);
+      await productService.delete(productId);
       setProducts(products.filter(product => product.id !== productId));
     } catch (error) {
       console.error('Error deleting product:', error);
@@ -1770,8 +1774,7 @@ const NewListModal = ({
         total_budget: totalBudget ? parseFloat(totalBudget) : null
       };
 
-      const response = await api.post('/shopping-lists', payload);
-      const newList = response.data;
+      const newList = await shoppingListService.create(payload);
       onSave();
       onClose();
       // Navegar automáticamente a la lista creada
@@ -1872,13 +1875,12 @@ const AddItemModal = ({
   React.useEffect(() => {
     const loadData = async () => {
       try {
-        const [productsRes, categoriesRes] = await Promise.all([
-          api.get('/products'),
-          api.get('/categories')
+        const [products, categories] = await Promise.all([
+          productService.getAll(),
+          categoryService.getAll()
         ]);
-        // El endpoint /products ahora devuelve { products: [...], alternatives: {...} }
-        setProducts(productsRes.data.products || []);
-        setCategories(categoriesRes.data);
+        setProducts(products || []);
+        setCategories(categories);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -1943,8 +1945,7 @@ const AddItemModal = ({
           unit: newProductUnit
         };
         
-        const productResponse = await api.post('/products', newProductData);
-        const createdProduct = productResponse.data;
+        const createdProduct = await productService.create(newProductData);
         
         // Luego añadir el producto creado a la lista
         payload = {
@@ -1963,7 +1964,7 @@ const AddItemModal = ({
         };
       }
 
-      await api.post(`/shopping-lists/${listId}/items`, payload);
+      await shoppingListService.addItem(listId, payload);
       onSave();
       onClose();
     } catch (error) {
@@ -2276,11 +2277,11 @@ const EditListModal = ({
     if (!name.trim() || !token) return;
     
     try {
-      await api.put(`/shopping-lists/${list.id}`, { 
+            await shoppingListService.update(list.id, { 
           name: name.trim(),
           description: description.trim() || null,
           total_budget: totalBudget ? parseFloat(totalBudget) : null
-      });
+        });
       onSave();
       onClose();
     } catch (error) {
@@ -2365,10 +2366,10 @@ const EditItemModal = ({
   const handleSave = async () => {
     if (!token) return;
     try {
-      await api.put(`/shopping-lists/${listId}/items/${item.id}`, {
+      await shoppingListService.updateItem(listId, item.id, {
           quantity,
-          estimated_price: estimatedPrice ? parseFloat(estimatedPrice) : null,
-          notes: notes.trim() || null
+          estimated_price: estimatedPrice ? parseFloat(estimatedPrice) : undefined,
+          notes: notes.trim() ? notes.trim() : undefined
       });
       onSave();
       onClose();
@@ -2483,7 +2484,7 @@ const EditProductModal = ({
         estimated_price: estimatedPrice ? parseFloat(estimatedPrice) : undefined,
         unit: unit
       };
-      await api.put(`/products/${product.id}`, updatedProductData);
+      await productService.update(product.id, updatedProductData);
       onSave();
       onClose();
     } catch (error) {
@@ -2641,7 +2642,7 @@ const NewProductModal = ({
         estimated_price: estimatedPrice ? parseFloat(estimatedPrice) : undefined,
         unit: unit
       };
-      await api.post('/products', newProductData);
+      await productService.create(newProductData);
       onSave();
       onClose();
     } catch (error) {
