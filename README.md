@@ -49,19 +49,19 @@ La aplicación sigue una arquitectura cliente-servidor desacoplada:
 #### 🚀 Cómo Empezar
 
 1.  **Clonar el repositorio**:
-    ```bash
+```bash
     git clone <URL_DEL_REPOSITORIO>
-    cd showcaseAntonio
-    ```
+cd showcaseAntonio
+```
 
 2.  **Configurar variables de entorno**:
     El backend requiere una URL de conexión a la base de datos. Por defecto, `docker-compose.yml` la configura. No se necesita un archivo `.env` para empezar con Docker.
 
 3.  **Levantar los servicios con Docker Compose**:
     Este comando construirá las imágenes de Docker para el frontend y el backend, iniciará los contenedores y la base de datos.
-    ```bash
-    docker-compose up --build
-    ```
+```bash
+docker-compose up --build
+```
 
 4.  **Acceder a la aplicación**:
     -   **Frontend**: `http://localhost:3000`

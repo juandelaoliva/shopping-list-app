@@ -296,8 +296,6 @@ interface ShoppingItemProps {
 
 interface ProductCardProps {
   product: Product;
-  onEdit?: () => void;
-  onDelete?: () => void;
 }
 
 // Icons (using emoji for simplicity)
@@ -360,11 +358,12 @@ const HomeScreen = ({ onNavigate }: { onNavigate: (view: string, listId?: number
   const [showEditListModal, setShowEditListModal] = React.useState(false);
   const [editingList, setEditingList] = React.useState<List | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
-  const { logout, user } = useAuth(); // No necesitamos el token aquí
+  const { token, logout, user } = useAuth(); // Obtener token, logout y user
 
-  const loadLists = React.useCallback(async () => {
+  const loadLists = async () => {
+    if (!token) return;
     try {
-      setLoading(true);
+      // Usamos el api service que ya tiene el token inyectado
       const response = await api.get('/shopping-lists');
       setLists(response.data);
     } catch (error) {
@@ -372,10 +371,11 @@ const HomeScreen = ({ onNavigate }: { onNavigate: (view: string, listId?: number
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   const deleteList = async (listId: number) => {
     if (!window.confirm('¿Estás seguro de que quieres eliminar esta lista?')) return;
+    if (!token) return;
     
     try {
       await api.delete(`/shopping-lists/${listId}`);
@@ -392,7 +392,7 @@ const HomeScreen = ({ onNavigate }: { onNavigate: (view: string, listId?: number
 
   React.useEffect(() => {
     loadLists();
-  }, [loadLists]);
+  }, [token]);
 
   const filteredLists = lists.filter(list =>
     list.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -716,10 +716,11 @@ const ListDetailScreen = ({
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [showEditItemModal, setShowEditItemModal] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<ListItem | null>(null);
+  const { token } = useAuth(); // Obtener token
 
-  const loadListData = React.useCallback(async () => {
+  const loadListData = async () => {
+    if (!token) return;
     try {
-      setLoading(true);
       const response = await api.get(`/shopping-lists/${listId}`);
       setList(response.data);
       setItems(response.data.items || []);
@@ -728,25 +729,21 @@ const ListDetailScreen = ({
     } finally {
       setLoading(false);
     }
-  }, [listId]);
+  };
 
   React.useEffect(() => {
     loadListData();
-  }, [loadListData]);
+  }, [listId, token]);
 
   const toggleItem = async (itemId: number, isPurchased: boolean) => {
+    if (!token) return;
     try {
       await api.put(`/shopping-lists/${listId}/items/${itemId}`, { is_purchased: !isPurchased });
-      // Actualización optimista de la UI
-      const updatedItems = items.map(item => 
+      setItems(items.map(item => 
         item.id === itemId ? { ...item, is_purchased: !isPurchased } : item
-      );
-      setItems(updatedItems);
-      // Recargar datos para consistencia (opcional, pero seguro)
-      loadListData();
+      ));
     } catch (error) {
       console.error('Error toggling item:', error);
-      // Revertir en caso de error (opcional)
     }
   };
 
@@ -757,6 +754,7 @@ const ListDetailScreen = ({
 
   const deleteItem = async (itemId: number) => {
     if (!window.confirm('¿Estás seguro de que quieres eliminar este producto?')) return;
+    if (!token) return;
     
     try {
       await api.delete(`/shopping-lists/${listId}/items/${itemId}`);
@@ -1150,9 +1148,8 @@ const ProductsScreen = ({
   const [showNewProductModal, setShowNewProductModal] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
 
-  const loadData = React.useCallback(async () => {
+  const loadData = async () => {
     try {
-      setLoading(true);
       const [productsRes, categoriesRes] = await Promise.all([
         api.get('/products'),
         api.get('/categories')
@@ -1164,11 +1161,11 @@ const ProductsScreen = ({
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   React.useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, []);
 
   const editProduct = (product: Product) => {
     setEditingProduct(product);
@@ -1522,9 +1519,10 @@ const NewListModal = ({
   const [name, setName] = React.useState('');
   const [description, setDescription] = React.useState('');
   const [totalBudget, setTotalBudget] = React.useState('');
+  const { token } = useAuth(); // Obtener token
 
   const handleSave = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !token) return;
     
     try {
       const payload = {
@@ -1629,12 +1627,12 @@ const AddItemModal = ({
   const [quantity, setQuantity] = React.useState(1);
   const [isCreatingNew, setIsCreatingNew] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
+  const { token } = useAuth(); // Obtener token
 
   // Cargar productos y categorías al abrir el modal
   React.useEffect(() => {
     const loadData = async () => {
       try {
-        setLoading(true);
         const [productsRes, categoriesRes] = await Promise.all([
           api.get('/products'),
           api.get('/categories')
@@ -1689,6 +1687,7 @@ const AddItemModal = ({
   }, [products, searchTerm, selectedCategory, sortBy]);
 
   const handleSave = async () => {
+    if (!token) return;
     if (isCreatingNew && !customName.trim()) return;
     if (!isCreatingNew && !selectedProduct) return;
     
@@ -2029,9 +2028,10 @@ const EditListModal = ({
   const [name, setName] = React.useState(list.name);
   const [description, setDescription] = React.useState(list.description || '');
   const [totalBudget, setTotalBudget] = React.useState(list.total_budget?.toString() || '');
+  const { token } = useAuth(); // Obtener token
 
   const handleSave = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !token) return;
     
     try {
       await api.put(`/shopping-lists/${list.id}`, { 
@@ -2118,13 +2118,15 @@ const EditItemModal = ({
   const [quantity, setQuantity] = React.useState(item.quantity);
   const [estimatedPrice, setEstimatedPrice] = React.useState(item.estimated_price?.toString() || '');
   const [notes, setNotes] = React.useState(item.notes || '');
+  const { token } = useAuth(); // Obtener token
 
   const handleSave = async () => {
+    if (!token) return;
     try {
       await api.put(`/shopping-lists/${listId}/items/${item.id}`, {
-        quantity,
-        estimated_price: estimatedPrice ? parseFloat(estimatedPrice) : null,
-        notes: notes.trim() || null
+          quantity,
+          estimated_price: estimatedPrice ? parseFloat(estimatedPrice) : null,
+          notes: notes.trim() || null
       });
       onSave();
       onClose();
