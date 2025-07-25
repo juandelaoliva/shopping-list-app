@@ -296,6 +296,8 @@ interface ShoppingItemProps {
 
 interface ProductCardProps {
   product: Product;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 // Icons (using emoji for simplicity)
