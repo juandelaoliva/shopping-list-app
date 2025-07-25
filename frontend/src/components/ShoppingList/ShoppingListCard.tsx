@@ -78,7 +78,7 @@ const ShoppingListCard: React.FC<ShoppingListCardProps> = ({
 
       <div className="card-content">
         {/* Barra de progreso */}
-        {list.total_items > 0 && (
+        {list.total_items && list.total_items > 0 && (
           <div className="mb-4">
             <div className="flex justify-between text-sm mb-1">
               <span className="text-gray-600">
