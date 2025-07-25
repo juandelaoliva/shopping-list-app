@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Check, Edit, Trash2, Save, X } from 'lucide-react';
-import { ListItem as ListItemType } from '../../types';
-import { shoppingListService } from '../../services/api';
+import { ListItem as ListItemType } from 'types';
+import { shoppingListService } from 'services/api';
 
 interface ListItemProps {
   item: ListItemType;
