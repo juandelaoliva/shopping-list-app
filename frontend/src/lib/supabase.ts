@@ -1,8 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 
-// IMPORTANTE: Reemplaza con tus valores reales de Supabase
-const supabaseUrl = 'https://slsievdsczoiajafklay.supabase.co'  // Tu Project URL
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNsc2lldmRzY3pvaWFqYWZrbGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM0NTI2NzYsImV4cCI6MjA2OTAyODY3Nn0.jeJ7Pxy9Spo3e7fOAn0zuZPgGUkFMZ206NWAs-XLvu0'  // Tu anon key
+// Configuración dinámica para desarrollo y producción
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://xxxxx.supabase.co'
+const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+
+// Validación de variables de entorno
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Missing Supabase environment variables. Please check your .env file or Vercel settings.')
+}
 
 // Crear cliente Supabase
 export const supabase = createClient(supabaseUrl, supabaseKey, {
