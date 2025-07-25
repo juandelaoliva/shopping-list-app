@@ -29,10 +29,15 @@ export const authService = {
   },
 
   // Register nuevo usuario
-  register: async (email: string, password: string) => {
+  register: async (email: string, password: string, displayName?: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
-      password
+      password,
+      options: {
+        data: {
+          display_name: displayName || email.split('@')[0]
+        }
+      }
     })
     
     if (error) throw error

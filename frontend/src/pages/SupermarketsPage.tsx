@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { supermarketService } from '../services/api';
+import { supermarketService } from '../services/supabase-api';
 import { Supermarket } from '../types';
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import BottomNavigation from '../components/Layout/BottomNavigation';

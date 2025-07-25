@@ -1,7 +1,7 @@
 export interface User {
   id: string;
   email: string;
-  username?: string; // Opcional para compatibilidad con Supabase
+  displayName?: string; // Display name del usuario en user_metadata de Supabase
 }
 
 export interface Supermarket {

@@ -123,7 +123,7 @@ const useAuth = () => {
 const AuthScreen = () => {
   const [isLogin, setIsLogin] = React.useState(true);
   const [email, setEmail] = React.useState('');
-  const [username, setUsername] = React.useState('');
+  const [displayName, setDisplayName] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [passwordConfirmation, setPasswordConfirmation] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
@@ -143,7 +143,11 @@ const AuthScreen = () => {
       if (isLogin) {
         // Login con Supabase
         const { user } = await authService.login(email, password);
-        const localUser: User = { id: user.id, email: user.email || '', username: user.email };
+        const localUser: User = { 
+          id: user.id, 
+          email: user.email || '', 
+          displayName: user.user_metadata?.display_name || user.email?.split('@')[0] 
+        };
         login('supabase-token', localUser); // Token ficticio ya que Supabase maneja la sesión
       } else {
         // Registro con Supabase
@@ -151,7 +155,7 @@ const AuthScreen = () => {
           setError('Las contraseñas no coinciden');
           return;
         }
-        await authService.register(email, password);
+        await authService.register(email, password, displayName);
         setIsLogin(true);
         setSuccessMessage('¡Registro exitoso! Revisa tu email para confirmar tu cuenta.');
       }
@@ -179,8 +183,8 @@ const AuthScreen = () => {
                   <label className="form-label">Nombre de Usuario</label>
                   <input
                     type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
                     className="form-input"
                     required
                   />
@@ -419,7 +423,7 @@ const HomeScreen = ({ onNavigate }: { onNavigate: (view: string, listId?: number
             </div>
             <div>
               <h1 className="text-lg font-semibold text-slate-900">Mis Listas</h1>
-              <p className="text-xs text-slate-500">Hola, {user?.username}</p>
+              <p className="text-xs text-slate-500">Hola, {user?.displayName}</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
