@@ -4,6 +4,7 @@ import './index.css';
 import api from './services/api'; // Importamos la instancia centralizada
 import SupermarketsPage from './pages/SupermarketsPage';
 import { getContrastTextColor } from './components/ColorPicker';
+import * as serviceWorker from './sw-registration'; // PWA Service Worker
 // No GenericProductsPage import
 
 import {
@@ -2713,4 +2714,20 @@ root.render(
       <App />
     </AuthProvider>
   </React.StrictMode>
-); 
+);
+
+// 🚀 Registrar PWA Service Worker
+serviceWorker.register({
+  onSuccess: () => {
+    console.log('🎉 PWA: App cached and ready for offline use!');
+  },
+  onUpdate: () => {
+    console.log('🔄 PWA: New version available!');
+  },
+});
+
+// 🌐 Configurar detección de red offline/online
+serviceWorker.setupNetworkDetection();
+
+// 📱 Configurar prompt de instalación PWA
+serviceWorker.setupInstallPrompt(); 
