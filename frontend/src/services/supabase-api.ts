@@ -1,34 +1,15 @@
 import { supabase } from '../lib/supabase'
 import {
-  Category,
-  Product,
-  ShoppingList,
-  ListItem,
-  Supermarket,
-  CreateShoppingListRequest,
-  UpdateShoppingListRequest,
-  CreateListItemRequest,
-  UpdateListItemRequest,
-  CreateProductRequest,
+  Category, Product, ShoppingList, ListItem, Supermarket,
+  CreateShoppingListRequest, UpdateShoppingListRequest,
+  CreateListItemRequest, UpdateListItemRequest, CreateProductRequest, User
 } from '../types'
 
 // ========================================
-// AUTH SERVICES
+// SERVICIO DE AUTENTICACIÓN
 // ========================================
-
 export const authService = {
-  // Login con email/password
-  login: async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
-    
-    if (error) throw error
-    return data
-  },
-
-  // Register nuevo usuario
+  // Registro de usuario con displayName opcional
   register: async (email: string, password: string, displayName?: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -39,24 +20,39 @@ export const authService = {
         }
       }
     })
-    
     if (error) throw error
     return data
   },
 
-  // Logout
+  // Inicio de sesión
+  login: async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    })
+    if (error) throw error
+    return data
+  },
+
+  // Cerrar sesión
   logout: async () => {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   },
 
-  // Get usuario actual
-  getCurrentUser: async () => {
+  // Obtener usuario actual
+  getCurrentUser: async (): Promise<User | null> => {
     const { data: { user } } = await supabase.auth.getUser()
-    return user
+    if (!user) return null
+    
+    return {
+      id: user.id,
+      email: user.email || '',
+      displayName: user.user_metadata?.display_name || user.email?.split('@')[0]
+    }
   },
 
-  // Get session actual
+  // Obtener sesión actual
   getSession: async () => {
     const { data: { session } } = await supabase.auth.getSession()
     return session
@@ -64,32 +60,30 @@ export const authService = {
 }
 
 // ========================================
-// CATEGORIES SERVICES
+// SERVICIO DE CATEGORÍAS
 // ========================================
-
 export const categoryService = {
   getAll: async (): Promise<Category[]> => {
     const { data, error } = await supabase
       .from('categories')
       .select('*')
       .order('name')
-    
+
     if (error) throw error
     return data || []
   }
 }
 
 // ========================================
-// SUPERMARKETS SERVICES
+// SERVICIO DE SUPERMERCADOS
 // ========================================
-
 export const supermarketService = {
   getAll: async (): Promise<Supermarket[]> => {
     const { data, error } = await supabase
       .from('supermarkets')
       .select('*')
       .order('name')
-    
+
     if (error) throw error
     return data || []
   },
@@ -100,7 +94,7 @@ export const supermarketService = {
       .select('*')
       .eq('id', id)
       .single()
-    
+
     if (error) throw error
     return data
   },
@@ -111,7 +105,7 @@ export const supermarketService = {
       .insert([supermarket])
       .select()
       .single()
-    
+
     if (error) throw error
     return data
   },
@@ -123,7 +117,7 @@ export const supermarketService = {
       .eq('id', id)
       .select()
       .single()
-    
+
     if (error) throw error
     return data
   },
@@ -133,52 +127,45 @@ export const supermarketService = {
       .from('supermarkets')
       .delete()
       .eq('id', id)
-    
+
     if (error) throw error
   }
 }
 
 // ========================================
-// PRODUCTS SERVICES
+// SERVICIO DE PRODUCTOS
 // ========================================
-
 export const productService = {
   getAll: async (categoryId?: number, search?: string): Promise<Product[]> => {
     let query = supabase
       .from('products')
       .select(`
         *,
-        category:categories(*),
-        supermarket:supermarkets(*)
+        category:categories(id, name, color, icon),
+        supermarket:supermarkets(id, name, color)
       `)
       .order('created_at', { ascending: false })
-    
+
     if (categoryId) {
       query = query.eq('category_id', categoryId)
     }
-    
+
     if (search) {
       query = query.ilike('name', `%${search}%`)
     }
-    
+
     const { data, error } = await query
-    
+
     if (error) throw error
-    
-    // Transformar datos para mantener compatibilidad
+
+    // Transformar datos para compatibilidad con el frontend
     return (data || []).map((item: any) => ({
-      id: item.id,
-      name: item.name,
-      category_id: item.category_id,
+      ...item,
       category_name: item.category?.name,
       category_color: item.category?.color,
       category_icon: item.category?.icon,
-      supermarket_id: item.supermarket_id,
       supermarket_name: item.supermarket?.name,
-      supermarket_color: item.supermarket?.color,
-      estimated_price: item.estimated_price,
-      unit: item.unit,
-      created_at: item.created_at
+      supermarket_color: item.supermarket?.color
     }))
   },
 
@@ -187,27 +174,22 @@ export const productService = {
       .from('products')
       .select(`
         *,
-        category:categories(*),
-        supermarket:supermarkets(*)
+        category:categories(id, name, color, icon),
+        supermarket:supermarkets(id, name, color)
       `)
       .eq('id', id)
       .single()
-    
+
     if (error) throw error
-    
+
+    // Transformar datos para compatibilidad con el frontend
     return {
-      id: data.id,
-      name: data.name,
-      category_id: data.category_id,
+      ...data,
       category_name: data.category?.name,
       category_color: data.category?.color,
       category_icon: data.category?.icon,
-      supermarket_id: data.supermarket_id,
       supermarket_name: data.supermarket?.name,
-      supermarket_color: data.supermarket?.color,
-      estimated_price: data.estimated_price,
-      unit: data.unit,
-      created_at: data.created_at
+      supermarket_color: data.supermarket?.color
     }
   },
 
@@ -217,26 +199,21 @@ export const productService = {
       .insert([product])
       .select(`
         *,
-        category:categories(*),
-        supermarket:supermarkets(*)
+        category:categories(id, name, color, icon),
+        supermarket:supermarkets(id, name, color)
       `)
       .single()
-    
+
     if (error) throw error
-    
+
+    // Transformar datos para compatibilidad con el frontend
     return {
-      id: data.id,
-      name: data.name,
-      category_id: data.category_id,
+      ...data,
       category_name: data.category?.name,
       category_color: data.category?.color,
       category_icon: data.category?.icon,
-      supermarket_id: data.supermarket_id,
       supermarket_name: data.supermarket?.name,
-      supermarket_color: data.supermarket?.color,
-      estimated_price: data.estimated_price,
-      unit: data.unit,
-      created_at: data.created_at
+      supermarket_color: data.supermarket?.color
     }
   },
 
@@ -247,83 +224,64 @@ export const productService = {
       .eq('id', id)
       .select(`
         *,
-        category:categories(*),
-        supermarket:supermarkets(*)
+        category:categories(id, name, color, icon),
+        supermarket:supermarkets(id, name, color)
       `)
       .single()
-    
+
     if (error) throw error
-    
+
+    // Transformar datos para compatibilidad con el frontend
     return {
-      id: data.id,
-      name: data.name,
-      category_id: data.category_id,
+      ...data,
       category_name: data.category?.name,
       category_color: data.category?.color,
       category_icon: data.category?.icon,
-      supermarket_id: data.supermarket_id,
       supermarket_name: data.supermarket?.name,
-      supermarket_color: data.supermarket?.color,
-      estimated_price: data.estimated_price,
-      unit: data.unit,
-      created_at: data.created_at
+      supermarket_color: data.supermarket?.color
     }
   },
 
   delete: async (id: number): Promise<void> => {
-    // Primero eliminar alternativas
-    await supabase
-      .from('product_alternatives')
-      .delete()
-      .or(`product_id.eq.${id},alternative_product_id.eq.${id}`)
-    
-    // Luego eliminar el producto
     const { error } = await supabase
       .from('products')
       .delete()
       .eq('id', id)
-    
+
     if (error) throw error
   },
 
+  // Alternativas de productos
   getAlternatives: async (id: number): Promise<Product[]> => {
     const { data, error } = await supabase
       .from('product_alternatives')
       .select(`
-        alternative_product:products!alternative_product_id(
+        alternative_product:products(
           *,
-          category:categories(*),
-          supermarket:supermarkets(*)
+          category:categories(id, name, color, icon),
+          supermarket:supermarkets(id, name, color)
         )
       `)
       .eq('product_id', id)
-    
+
     if (error) throw error
-    
-    return (data || []).map((item: any) => {
-      const product = item.alternative_product as any
-      return {
-        id: product.id,
-        name: product.name,
-        category_id: product.category_id,
-        category_name: product.category?.name,
-        category_color: product.category?.color,
-        category_icon: product.category?.icon,
-        supermarket_id: product.supermarket_id,
-        supermarket_name: product.supermarket?.name,
-        supermarket_color: product.supermarket?.color,
-        estimated_price: product.estimated_price,
-        unit: product.unit,
-        created_at: product.created_at
-      }
-    })
+
+    // Transformar datos para compatibilidad con el frontend
+    return (data || []).map((item: any) => ({
+      ...item.alternative_product,
+      category_name: item.alternative_product?.category?.name,
+      category_color: item.alternative_product?.category?.color,
+      category_icon: item.alternative_product?.category?.icon,
+      supermarket_name: item.alternative_product?.supermarket?.name,
+      supermarket_color: item.alternative_product?.supermarket?.color
+    }))
   },
 
   addAlternative: async (productId: number, alternativeId: number): Promise<void> => {
     const { error } = await supabase
       .from('product_alternatives')
       .insert([{ product_id: productId, alternative_product_id: alternativeId }])
-    
+
     if (error) throw error
   },
 
@@ -333,34 +291,42 @@ export const productService = {
       .delete()
       .eq('product_id', productId)
       .eq('alternative_product_id', alternativeId)
-    
+
     if (error) throw error
   }
 }
 
 // ========================================
-// SHOPPING LISTS SERVICES
+// SERVICIO DE LISTAS DE COMPRAS
 // ========================================
-
 export const shoppingListService = {
   getAll: async (): Promise<ShoppingList[]> => {
     const { data, error } = await supabase
       .from('shopping_lists')
       .select(`
         *,
-        list_items(*)
+        list_items:list_items(
+          *,
+          product:products(
+            *,
+            category:categories(name, color, icon),
+            supermarket:supermarkets(name, color)
+          )
+        )
       `)
       .order('created_at', { ascending: false })
-    
+
     if (error) throw error
-    
-    // Calcular estadísticas
+
+    // Transformar datos para compatibilidad con el frontend
     return (data || []).map((list: any) => ({
       ...list,
+      items: list.list_items || [],
       total_items: list.list_items?.length || 0,
       purchased_items: list.list_items?.filter((item: any) => item.is_purchased).length || 0,
-      total_estimated: list.list_items?.reduce((sum: number, item: any) => 
-        sum + (item.estimated_price * item.quantity || 0), 0) || 0
+      estimated_total: list.list_items?.reduce((sum: number, item: any) => 
+        sum + (item.estimated_price || 0) * (item.quantity || 1), 0
+      ) || 0
     }))
   },
 
@@ -369,52 +335,52 @@ export const shoppingListService = {
       .from('shopping_lists')
       .select(`
         *,
-        list_items(
+        list_items:list_items(
           *,
           product:products(
             *,
-            category:categories(*),
-            supermarket:supermarkets(*)
+            category:categories(name, color, icon),
+            supermarket:supermarkets(name, color)
           )
         )
       `)
       .eq('id', id)
       .single()
-    
+
     if (error) throw error
-    
-    // Transformar items para compatibilidad
-    const transformedItems = (data.list_items || []).map((item: any) => ({
-      ...item,
-      category_name: item.product?.category?.name,
-      category_color: item.product?.category?.color,
-      category_icon: item.product?.category?.icon,
-      supermarket_name: item.product?.supermarket?.name,
-      supermarket_color: item.product?.supermarket?.color,
-    }))
-    
+
+    // Transformar datos para compatibilidad con el frontend
     return {
       ...data,
-      list_items: transformedItems,
-      total_items: transformedItems.length,
-      purchased_items: transformedItems.filter((item: any) => item.is_purchased).length,
-      total_estimated: transformedItems.reduce((sum: number, item: any) => 
-        sum + (item.estimated_price * item.quantity || 0), 0)
+      items: data.list_items || [],
+      total_items: data.list_items?.length || 0,
+      purchased_items: data.list_items?.filter((item: any) => item.is_purchased).length || 0,
+      estimated_total: data.list_items?.reduce((sum: number, item: any) => 
+        sum + (item.estimated_price || 0) * (item.quantity || 1), 0
+      ) || 0
     }
   },
 
   create: async (list: CreateShoppingListRequest): Promise<ShoppingList> => {
-    const user = await authService.getCurrentUser()
-    if (!user) throw new Error('Not authenticated')
-    
+    // Obtener el usuario actual
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Usuario no autenticado')
+
     const { data, error } = await supabase
       .from('shopping_lists')
       .insert([{ ...list, user_id: user.id }])
       .select()
       .single()
-    
+
     if (error) throw error
-    return { ...data, total_items: 0, purchased_items: 0, total_estimated: 0 }
+
+    return {
+      ...data,
+      items: [],
+      total_items: 0,
+      purchased_items: 0,
+      estimated_total: 0
+    }
   },
 
   update: async (id: number, list: UpdateShoppingListRequest): Promise<ShoppingList> => {
@@ -424,9 +390,16 @@ export const shoppingListService = {
       .eq('id', id)
       .select()
       .single()
-    
+
     if (error) throw error
-    return data
+
+    return {
+      ...data,
+      items: [],
+      total_items: 0,
+      purchased_items: 0,
+      estimated_total: 0
+    }
   },
 
   delete: async (id: number): Promise<void> => {
@@ -434,11 +407,11 @@ export const shoppingListService = {
       .from('shopping_lists')
       .delete()
       .eq('id', id)
-    
+
     if (error) throw error
   },
 
-  // Servicios de elementos de lista
+  // Elementos de lista
   addItem: async (listId: number, item: CreateListItemRequest): Promise<ListItem> => {
     const { data, error } = await supabase
       .from('list_items')
@@ -447,22 +420,14 @@ export const shoppingListService = {
         *,
         product:products(
           *,
-          category:categories(*),
-          supermarket:supermarkets(*)
+          category:categories(name, color, icon),
+          supermarket:supermarkets(name, color)
         )
       `)
       .single()
-    
+
     if (error) throw error
-    
-    return {
-      ...data,
-      category_name: data.product?.category?.name,
-      category_color: data.product?.category?.color,
-      category_icon: data.product?.category?.icon,
-      supermarket_name: data.product?.supermarket?.name,
-      supermarket_color: data.product?.supermarket?.color,
-    }
+    return data
   },
 
   updateItem: async (listId: number, itemId: number, item: UpdateListItemRequest): Promise<ListItem> => {
@@ -475,22 +440,14 @@ export const shoppingListService = {
         *,
         product:products(
           *,
-          category:categories(*),
-          supermarket:supermarkets(*)
+          category:categories(name, color, icon),
+          supermarket:supermarkets(name, color)
         )
       `)
       .single()
-    
+
     if (error) throw error
-    
-    return {
-      ...data,
-      category_name: data.product?.category?.name,
-      category_color: data.product?.category?.color,
-      category_icon: data.product?.category?.icon,
-      supermarket_name: data.product?.supermarket?.name,
-      supermarket_color: data.product?.supermarket?.color,
-    }
+    return data
   },
 
   deleteItem: async (listId: number, itemId: number): Promise<void> => {
@@ -499,7 +456,7 @@ export const shoppingListService = {
       .delete()
       .eq('id', itemId)
       .eq('shopping_list_id', listId)
-    
+
     if (error) throw error
   }
 } 
