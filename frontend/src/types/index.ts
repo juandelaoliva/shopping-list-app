@@ -1,3 +1,11 @@
+export interface Supermarket {
+  id: number;
+  name: string;
+  logo_url?: string;
+  color: string;
+  created_at: string;
+}
+
 export interface Category {
   id: number;
   name: string;
@@ -9,10 +17,15 @@ export interface Category {
 export interface Product {
   id: number;
   name: string;
-  category_id: number;
-  estimated_price: number;
+  estimated_price?: number;
   unit: string;
   created_at: string;
+  // Relaciones
+  supermarket_id?: number; // Opcional
+  category_id?: number; // Opcional
+  // Campos de JOINs (enriquecidos por el backend)
+  supermarket_name?: string;
+  supermarket_color?: string;
   category_name?: string;
   category_color?: string;
   category_icon?: string;
@@ -35,17 +48,19 @@ export interface ShoppingList {
 export interface ListItem {
   id: number;
   shopping_list_id: number;
-  product_id?: number;
-  custom_product_name?: string;
+  product_id: number | null;
+  custom_product_name: string | null;
+  product_name: string; // Este campo lo construye el backend
+  supermarket_name: string | null;
+  supermarket_color?: string | null;
   quantity: number;
   unit: string;
-  estimated_price?: number;
+  estimated_price: number | null;
   actual_price?: number;
   is_purchased: boolean;
   notes?: string;
   created_at: string;
   purchased_at?: string;
-  product_name?: string;
   category_name?: string;
   category_color?: string;
   category_icon?: string;
@@ -84,9 +99,30 @@ export interface UpdateShoppingListRequest {
 
 export interface CreateProductRequest {
   name: string;
-  category_id?: number;
   estimated_price?: number;
   unit?: string;
+  supermarket_id?: number;
+  category_id?: number;
+}
+
+export interface ListCardProps {
+  list: ShoppingList;
+  onTap: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+export interface ShoppingItemProps {
+  item: ListItem;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+export interface ProductCardProps {
+  product: Product;
+  onEdit: () => void;
+  onDelete: () => void;
 }
 
 export interface ApiResponse<T> {

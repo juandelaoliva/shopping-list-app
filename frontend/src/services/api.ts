@@ -4,6 +4,7 @@ import {
   Product,
   ShoppingList,
   ListItem,
+  Supermarket,
   CreateShoppingListRequest,
   UpdateShoppingListRequest,
   CreateListItemRequest,
@@ -44,6 +45,25 @@ api.interceptors.response.use(
   }
 );
 
+// Servicios de Supermercados
+export const supermarketService = {
+  getAll: async (): Promise<Supermarket[]> => {
+    const response = await api.get('/supermarkets');
+    return response.data;
+  },
+  create: async (supermarket: { name: string; logo_url?: string }): Promise<Supermarket> => {
+    const response = await api.post('/supermarkets', supermarket);
+    return response.data;
+  },
+  update: async (id: number, supermarket: { name: string; logo_url?: string }): Promise<Supermarket> => {
+    const response = await api.put(`/supermarkets/${id}`, supermarket);
+    return response.data;
+  },
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/supermarkets/${id}`);
+  },
+};
+
 // Servicios de Categorías
 export const categoryService = {
   getAll: async (): Promise<Category[]> => {
@@ -59,9 +79,36 @@ export const productService = {
     return response.data;
   },
 
+  getById: async (id: number): Promise<Product> => {
+    const response = await api.get(`/products/${id}`);
+    return response.data;
+  },
+
   create: async (product: CreateProductRequest): Promise<Product> => {
     const response = await api.post('/products', product);
     return response.data;
+  },
+
+  update: async (id: number, product: Partial<CreateProductRequest>): Promise<Product> => {
+    const response = await api.put(`/products/${id}`, product);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/products/${id}`);
+  },
+
+  getAlternatives: async (id: number): Promise<Product[]> => {
+    const response = await api.get(`/products/${id}/alternatives`);
+    return response.data;
+  },
+
+  addAlternative: async (productId: number, alternativeId: number): Promise<void> => {
+    await api.post(`/products/${productId}/alternatives`, { alternative_id: alternativeId });
+  },
+
+  removeAlternative: async (productId: number, alternativeId: number): Promise<void> => {
+    await api.delete(`/products/${productId}/alternatives/${alternativeId}`);
   },
 };
 

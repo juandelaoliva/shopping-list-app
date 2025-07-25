@@ -215,8 +215,107 @@ app.get('/api/test-logs', (req, res) => {
   res.json({ message: 'Test logs working', timestamp: new Date() });
 });
 
-// RUTAS DE CATEGORÍAS
-app.get('/api/categories', async (req, res) => {
+// Rutas de Supermercados (NUEVO)
+app.get('/api/supermarkets', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM supermarkets ORDER BY name');
+    
+    // Asegurar que todos los supermercados tengan un color por defecto
+    const supermarketsWithColor = result.rows.map(supermarket => ({
+      ...supermarket,
+      color: supermarket.color || '#6366F1'
+    }));
+    
+    res.json(supermarketsWithColor);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.get('/api/supermarkets/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('SELECT * FROM supermarkets WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Supermercado no encontrado' });
+    }
+    
+    // Asegurar que el supermercado tenga un color por defecto
+    const supermarket = {
+      ...result.rows[0],
+      color: result.rows[0].color || '#6366F1'
+    };
+    
+    res.json(supermarket);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.post('/api/supermarkets', authenticateToken, async (req, res) => {
+  try {
+    const { name, logo_url, color } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'El nombre es obligatorio' });
+    }
+    const result = await pool.query(
+      'INSERT INTO supermarkets (name, logo_url, color) VALUES ($1, $2, $3) RETURNING *',
+      [name, logo_url, color || '#6366F1']
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    // Manejar error de unicidad
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Ya existe un supermercado con ese nombre' });
+    }
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.put('/api/supermarkets/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, logo_url, color } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'El nombre es obligatorio' });
+    }
+    const result = await pool.query(
+      'UPDATE supermarkets SET name = $1, logo_url = $2, color = $3 WHERE id = $4 RETURNING *',
+      [name, logo_url, color || '#6366F1', id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Supermercado no encontrado' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Ya existe un supermercado con ese nombre' });
+    }
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.delete('/api/supermarkets/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('DELETE FROM supermarkets WHERE id = $1 RETURNING *', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Supermercado no encontrado' });
+    }
+    res.status(204).send(); // No Content
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+
+// Rutas de Categorías
+app.get('/api/categories', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM categories ORDER BY name');
     res.json(result.rows);
@@ -227,37 +326,58 @@ app.get('/api/categories', async (req, res) => {
 });
 
 // RUTAS DE PRODUCTOS
-app.get('/api/products', async (req, res) => {
+app.get('/api/products', authenticateToken, async (req, res) => {
   try {
     const { category_id, search } = req.query;
-    let query = `
-      SELECT p.*, c.name as category_name, c.color as category_color, c.icon as category_icon
+    
+    // 1. Obtener todos los productos filtrados
+    let productsQuery = `
+      SELECT 
+        p.id, p.name, p.estimated_price, p.unit, p.created_at,
+        s.id as supermarket_id, s.name as supermarket_name, s.color as supermarket_color,
+        c.id as category_id, c.name as category_name, c.icon as category_icon, c.color as category_color
       FROM products p
+      LEFT JOIN supermarkets s ON p.supermarket_id = s.id
       LEFT JOIN categories c ON p.category_id = c.id
     `;
-    const values = [];
-    const conditions = [];
-
+    const params = [];
+    
+    let whereClauses = [];
     if (category_id) {
-      conditions.push('p.category_id = $' + (values.length + 1));
-      values.push(category_id);
+      params.push(category_id);
+      whereClauses.push(`c.id = $${params.length}`);
     }
-
     if (search) {
-      conditions.push('p.name ILIKE $' + (values.length + 1));
-      values.push(`%${search}%`);
+      params.push(`%${search}%`);
+      whereClauses.push(`p.name ILIKE $${params.length}`);
     }
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
+    if (whereClauses.length > 0) {
+      productsQuery += ' WHERE ' + whereClauses.join(' AND ');
     }
+    
+    productsQuery += ' ORDER BY p.name';
 
-    query += ' ORDER BY p.name';
+    const productsResult = await pool.query(productsQuery, params);
+    const products = productsResult.rows;
 
-    const result = await pool.query(query, values);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error al obtener productos:', error);
+    // 2. Obtener todas las relaciones de alternativas
+    const alternativesResult = await pool.query('SELECT product_a_id, product_b_id FROM product_alternatives');
+    const alternativesMap = new Map();
+    alternativesResult.rows.forEach(({ product_a_id, product_b_id }) => {
+      if (!alternativesMap.has(product_a_id)) alternativesMap.set(product_a_id, []);
+      if (!alternativesMap.has(product_b_id)) alternativesMap.set(product_b_id, []);
+      alternativesMap.get(product_a_id).push(product_b_id);
+      alternativesMap.get(product_b_id).push(product_a_id);
+    });
+
+    res.json({
+      products: products,
+      alternatives: Object.fromEntries(alternativesMap) // Convertir mapa a objeto para JSON
+    });
+
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
@@ -267,100 +387,163 @@ app.get('/api/products/:id', async (req, res) => {
     const { id } = req.params;
     
     const result = await pool.query(`
-      SELECT p.*, c.name as category_name, c.color as category_color, c.icon as category_icon
+      SELECT 
+        p.*, 
+        c.name as category_name, c.color as category_color, c.icon as category_icon,
+        s.name as supermarket_name, s.color as supermarket_color
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN supermarkets s ON p.supermarket_id = s.id
       WHERE p.id = $1
     `, [id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
+
+    // Asegurar que el supermercado tenga un color por defecto si está presente
+    const product = {
+      ...result.rows[0],
+      supermarket_color: result.rows[0].supermarket_color || (result.rows[0].supermarket_name ? '#6366F1' : null)
+    };
     
-    res.json(result.rows[0]);
+    res.json(product);
   } catch (error) {
     console.error('Error al obtener producto:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
-app.post('/api/products', async (req, res) => {
+app.post('/api/products', authenticateToken, async (req, res) => {
   try {
-    const { name, category_id, estimated_price, unit } = req.body;
-    
+    const { name, supermarket_id, category_id, estimated_price, unit } = req.body;
     if (!name) {
-      return res.status(400).json({ error: 'El nombre del producto es requerido' });
+      return res.status(400).json({ error: 'El nombre es obligatorio' });
     }
-
     const result = await pool.query(
-      'INSERT INTO products (name, category_id, estimated_price, unit) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, category_id, estimated_price, unit || 'unidad']
+      `INSERT INTO products (name, supermarket_id, category_id, estimated_price, unit) 
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [name, supermarket_id || null, category_id || null, estimated_price, unit]
     );
-    
     res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error('Error al crear producto:', error);
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
-app.put('/api/products/:id', async (req, res) => {
+app.put('/api/products/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, category_id, estimated_price, unit } = req.body;
-    
+    const { name, supermarket_id, category_id, estimated_price, unit } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'El nombre es obligatorio' });
+    }
     const result = await pool.query(
-      `UPDATE products 
-       SET name = COALESCE($1, name),
-           category_id = COALESCE($2, category_id),
-           estimated_price = COALESCE($3, estimated_price),
-           unit = COALESCE($4, unit)
-       WHERE id = $5 
-       RETURNING *`,
-      [name, category_id, estimated_price, unit, id]
+      `UPDATE products SET name = $1, supermarket_id = $2, category_id = $3, estimated_price = $4, unit = $5
+       WHERE id = $6 RETURNING *`,
+      [name, supermarket_id || null, category_id || null, estimated_price, unit, id]
     );
-    
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
-    
     res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error al actualizar producto:', error);
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
-app.delete('/api/products/:id', async (req, res) => {
+app.delete('/api/products/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Verificar si el producto está siendo usado en alguna lista
-    const usageCheck = await pool.query(
-      'SELECT COUNT(*) FROM list_items WHERE product_id = $1',
-      [id]
-    );
+    // Eliminar primero las relaciones de alternativas
+    await pool.query('DELETE FROM product_alternatives WHERE product_a_id = $1 OR product_b_id = $1', [id]);
     
-    if (parseInt(usageCheck.rows[0].count) > 0) {
-      return res.status(400).json({ 
-        error: 'No se puede eliminar el producto porque está siendo usado en listas de compra' 
-      });
-    }
+    // Actualizar list_items para remover la referencia al producto (poner product_id en NULL)
+    // Los items de lista mantendrán el nombre en custom_product_name
+    await pool.query('UPDATE list_items SET product_id = NULL WHERE product_id = $1', [id]);
     
+    // Luego eliminar el producto
     const result = await pool.query('DELETE FROM products WHERE id = $1 RETURNING *', [id]);
     
-    if (result.rows.length === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
     
-    res.json({ message: 'Producto eliminado correctamente' });
-  } catch (error) {
-    console.error('Error al eliminar producto:', error);
+    res.status(204).send(); // No Content
+  } catch (err) {
+    console.error('Error al eliminar producto:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
-// RUTAS DE LISTAS DE COMPRA
+// Nuevas rutas para gestionar alternativas
+app.get('/api/products/:id/alternatives', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(`
+      SELECT p.*, s.name as supermarket_name, s.color as supermarket_color
+      FROM products p
+      LEFT JOIN supermarkets s ON p.supermarket_id = s.id
+      WHERE p.id IN (
+        SELECT product_b_id FROM product_alternatives WHERE product_a_id = $1
+        UNION
+        SELECT product_a_id FROM product_alternatives WHERE product_b_id = $1
+      )
+    `, [id]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.post('/api/products/:id/alternatives', authenticateToken, async (req, res) => {
+  try {
+    const { id: productAId } = req.params;
+    const { alternative_id: productBId } = req.body;
+    
+    // Para evitar duplicados y conflictos, insertamos la pareja siempre en el mismo orden (ID menor, ID mayor)
+    const [a, b] = [Math.min(productAId, productBId), Math.max(productAId, productBId)];
+
+    if (a === b) {
+      return res.status(400).json({ error: 'Un producto no puede ser alternativa de sí mismo' });
+    }
+
+    const result = await pool.query(
+      'INSERT INTO product_alternatives (product_a_id, product_b_id) VALUES ($1, $2) RETURNING *',
+      [a, b]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    if (err.code === '23505') { // Error de clave primaria duplicada
+      return res.status(409).json({ error: 'Estos productos ya están vinculados como alternativas' });
+    }
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.delete('/api/products/:id/alternatives/:alternative_id', authenticateToken, async (req, res) => {
+  try {
+    const { id: productAId, alternative_id: productBId } = req.params;
+    const [a, b] = [Math.min(productAId, productBId), Math.max(productAId, productBId)];
+
+    await pool.query(
+      'DELETE FROM product_alternatives WHERE product_a_id = $1 AND product_b_id = $2',
+      [a, b]
+    );
+    res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+
+// Rutas de Listas de Compra
 app.get('/api/shopping-lists', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -398,12 +581,14 @@ app.get('/api/shopping-lists/:id', authenticateToken, async (req, res) => {
     const itemsResult = await pool.query(`
       SELECT li.*, 
              COALESCE(p.name, li.custom_product_name) as product_name,
+             s.name as supermarket_name, s.color as supermarket_color,
              c.name as category_name,
              c.color as category_color,
              c.icon as category_icon
       FROM list_items li
       LEFT JOIN products p ON li.product_id = p.id
       LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN supermarkets s ON p.supermarket_id = s.id
       WHERE li.shopping_list_id = $1
       ORDER BY li.is_purchased, c.name, li.created_at
     `, [id]);
@@ -709,4 +894,4 @@ process.on('SIGINT', () => {
   console.log('🔄 Cerrando servidor...');
   pool.end();
   process.exit(0);
-}); 
+});
