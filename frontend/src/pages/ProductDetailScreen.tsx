@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Product, Category, Supermarket, CreateProductRequest, ShoppingList, CreateListItemRequest } from '../types';
-import { productService, categoryService, supermarketService, shoppingListService } from '../services/api';
-import api from '../services/api';
+import { productService, categoryService, supermarketService, shoppingListService } from '../services/supabase-api';
 import { ArrowLeft, Edit, Trash2, Plus, ShoppingCart } from 'lucide-react';
 import { Icons } from '../components/Layout/Icons';
 import { getContrastTextColor } from '../components/ColorPicker';
@@ -599,7 +598,7 @@ const EditProductModal = ({
         estimated_price: estimatedPrice ? parseFloat(estimatedPrice) : undefined,
         unit: unit
       };
-      await api.put(`/products/${product.id}`, updatedProductData);
+      await productService.update(product.id, updatedProductData);
       onSave();
       onClose();
     } catch (error) {

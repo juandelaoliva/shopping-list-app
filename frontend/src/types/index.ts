@@ -1,3 +1,9 @@
+export interface User {
+  id: string;
+  email: string;
+  username?: string; // Opcional para compatibilidad con Supabase
+}
+
 export interface Supermarket {
   id: number;
   name: string;
@@ -43,6 +49,7 @@ export interface ShoppingList {
   purchased_items?: number;
   estimated_total?: number;
   items?: ListItem[];
+  list_items?: ListItem[]; // Para compatibilidad con Supabase
 }
 
 export interface ListItem {
@@ -71,38 +78,38 @@ export interface CreateListItemRequest {
   custom_product_name?: string;
   quantity: number;
   unit?: string;
-  estimated_price?: number;
+  estimated_price?: number | null;
   notes?: string;
 }
 
 export interface UpdateListItemRequest {
   quantity?: number;
   unit?: string;
-  estimated_price?: number;
+  estimated_price?: number | null;
   actual_price?: number;
   is_purchased?: boolean;
-  notes?: string;
+  notes?: string | null;
 }
 
 export interface CreateShoppingListRequest {
   name: string;
-  description?: string;
-  total_budget?: number;
+  description?: string | null;
+  total_budget?: number | null;
 }
 
 export interface UpdateShoppingListRequest {
   name?: string;
-  description?: string;
-  total_budget?: number;
+  description?: string | null;
+  total_budget?: number | null;
   is_completed?: boolean;
 }
 
 export interface CreateProductRequest {
   name: string;
-  estimated_price?: number;
+  estimated_price?: number | null;
   unit?: string;
-  supermarket_id?: number;
-  category_id?: number;
+  supermarket_id?: number | null;
+  category_id?: number | null;
 }
 
 export interface ListCardProps {
