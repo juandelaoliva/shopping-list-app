@@ -1,15 +1,48 @@
 {
-  "short_name": "Lista Compra",
-  "name": "Lista de Compra App",
+  "short_name": "Shopping Pro",
+  "name": "Shopping List Pro - Lista de Compras",
+  "description": "Gestiona tus listas de compras de forma inteligente, online y offline",
   "icons": [
     {
       "src": "favicon.ico",
       "sizes": "64x64 32x32 24x24 16x16",
       "type": "image/x-icon"
+    },
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
-  "theme_color": "#0ea5e9",
-  "background_color": "#ffffff"
+  "theme_color": "#6366f1",
+  "background_color": "#f8fafc",
+  "orientation": "portrait",
+  "scope": "/",
+  "categories": ["shopping", "productivity", "lifestyle"],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nueva Lista",
+      "short_name": "Nueva Lista",
+      "description": "Crear una nueva lista de compras",
+      "url": "/?action=new-list",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Productos",
+      "short_name": "Productos",
+      "description": "Ver catálogo de productos",
+      "url": "/?view=products",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    }
+  ]
 } 

@@ -2,6 +2,53 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import api from './services/api'; // Importamos la instancia centralizada
+import SupermarketsPage from './pages/SupermarketsPage';
+import { getContrastTextColor } from './components/ColorPicker';
+import * as serviceWorker from './sw-registration'; // PWA Service Worker
+// No GenericProductsPage import
+
+import {
+  ShoppingList,
+  ListItem,
+  Product,
+  Category,
+  Supermarket,
+  CreateListItemRequest,
+  UpdateListItemRequest,
+  CreateShoppingListRequest,
+  UpdateShoppingListRequest,
+  CreateProductRequest,
+  ListCardProps,
+  ShoppingItemProps,
+  ProductCardProps
+} from './types';
+import { productService } from './services/api';
+import BottomNavigation from './components/Layout/BottomNavigation';
+import { Icons } from './components/Layout/Icons';
+import ProductDetailScreen from './pages/ProductDetailScreen';
+
+// Helper function para crear badges de supermercados con el color correcto
+const createSupermarketBadge = (name: string, color?: string | null, size: 'xs' | 'sm' = 'sm') => {
+  const badgeColor = color || '#6366F1'; // Color por defecto
+  const textColor = getContrastTextColor(badgeColor);
+  
+  const sizeClasses = {
+    xs: 'px-1 py-0.5 text-xs',
+    sm: 'px-2 py-1 text-xs'
+  };
+  
+  return (
+    <span 
+      className={`inline-block rounded-full font-medium ${sizeClasses[size]}`}
+      style={{
+        backgroundColor: badgeColor,
+        color: textColor
+      }}
+    >
+      {name}
+    </span>
+  );
+};
 
 /* ========================================
    AUTH CONTEXT
@@ -236,103 +283,24 @@ const AuthScreen = () => {
    Professional UX/UI Design
 ======================================== */
 
-// Types
-interface List {
-  id: number;
-  name: string;
-  description?: string;
-  total_budget?: number;
-  is_completed: boolean;
-  completed_at?: string;
-  created_at: string;
-  total_items: number;
-  purchased_items: number;
-  estimated_total: number;
-  items?: ListItem[];
-}
-
-interface ListItem {
-  id: number;
-  product_id?: number;
-  custom_product_name?: string;
-  quantity: number;
-  unit: string;
-  estimated_price?: number;
-  actual_price?: number;
-  is_purchased: boolean;
-  notes?: string;
-  product_name?: string;
-  category_name?: string;
-  category_color?: string;
-  category_icon?: string;
-}
-
-interface Product {
-  id: number;
-  name: string;
-  category_id?: number;
-  category_name?: string;
-  category_icon?: string;
-  category_color?: string;
-  estimated_price?: number;
-  unit: string;
-}
-
-interface Category {
-  id: number;
-  name: string;
-  icon: string;
-  color: string;
-}
-
-// Component Props Interfaces
-interface ListCardProps {
-  list: List;
-  onTap: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-}
-
-interface ShoppingItemProps {
-  item: ListItem;
-  onToggle: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-}
-
-interface ProductCardProps {
-  product: Product;
-  onEdit: () => void;
-  onDelete: () => void;
-}
-
-// Icons (using emoji for simplicity)
-const Icons = {
-  home: '🏠',
-  list: '📝',
-  products: '📦',
-  add: '➕',
-  back: '←',
-  edit: '✏️',
-  delete: '🗑️',
-  check: '✓',
-  cart: '🛒',
-  search: '🔍',
-  filter: '🔽',
-  close: '✕',
-  menu: '☰',
-  more: '⋯'
-};
-
 // Main App Component
 const App = () => {
   const { isAuthenticated } = useAuth();
   const [currentView, setCurrentView] = React.useState('home');
   const [selectedListId, setSelectedListId] = React.useState<number | null>(null);
+  const [selectedProductId, setSelectedProductId] = React.useState<number | null>(null);
 
-  const navigate = (view: string, listId?: number) => {
+  const navigate = (view: string, listId?: number, productId?: number, openModal?: string) => {
     setCurrentView(view);
     if (listId) setSelectedListId(listId);
+    if (productId) setSelectedProductId(productId);
+    // Si hay un modal que abrir, lo almacenamos temporalmente
+    if (openModal) {
+      setTimeout(() => {
+        const event = new CustomEvent('openModal', { detail: openModal });
+        window.dispatchEvent(event);
+      }, 100); // Pequeño delay para asegurar que el componente esté montado
+    }
   };
 
   if (!isAuthenticated) {
@@ -354,17 +322,26 @@ const App = () => {
       {currentView === 'products' && (
         <ProductsScreen onNavigate={navigate} />
       )}
+      {currentView === 'product-detail' && selectedProductId && (
+        <ProductDetailScreen 
+          productId={selectedProductId} 
+          onNavigate={navigate} 
+        />
+      )}
+      {currentView === 'supermarkets' && (
+        <SupermarketsPage onNavigate={navigate} />
+      )}
     </div>
   );
 };
 
 // Home Screen Component
-const HomeScreen = ({ onNavigate }: { onNavigate: (view: string, listId?: number) => void }) => {
-  const [lists, setLists] = React.useState<List[]>([]);
+const HomeScreen = ({ onNavigate }: { onNavigate: (view: string, listId?: number, productId?: number, openModal?: string) => void }) => {
+  const [lists, setLists] = React.useState<ShoppingList[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [showNewListModal, setShowNewListModal] = React.useState(false);
   const [showEditListModal, setShowEditListModal] = React.useState(false);
-  const [editingList, setEditingList] = React.useState<List | null>(null);
+  const [editingList, setEditingList] = React.useState<ShoppingList | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
   const { token, logout, user } = useAuth(); // Obtener token, logout y user
 
@@ -393,7 +370,7 @@ const HomeScreen = ({ onNavigate }: { onNavigate: (view: string, listId?: number
     }
   };
 
-  const editList = (list: List) => {
+  const editList = (list: ShoppingList) => {
     setEditingList(list);
     setShowEditListModal(true);
   };
@@ -401,6 +378,21 @@ const HomeScreen = ({ onNavigate }: { onNavigate: (view: string, listId?: number
   React.useEffect(() => {
     loadLists();
   }, [token]);
+
+  // Escuchar evento para abrir modal automáticamente
+  React.useEffect(() => {
+    const handleOpenModal = (event: CustomEvent) => {
+      if (event.detail === 'newList') {
+        setShowNewListModal(true);
+      }
+    };
+
+    window.addEventListener('openModal', handleOpenModal as EventListener);
+    
+    return () => {
+      window.removeEventListener('openModal', handleOpenModal as EventListener);
+    };
+  }, []);
 
   const filteredLists = lists.filter(list =>
     list.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -428,6 +420,13 @@ const HomeScreen = ({ onNavigate }: { onNavigate: (view: string, listId?: number
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            <button 
+              onClick={() => onNavigate('supermarkets')}
+              className="btn-icon btn-ghost"
+              title="Supermercados"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+            </button>
             <button 
               onClick={() => onNavigate('products')}
               className="btn-icon btn-ghost"
@@ -579,7 +578,9 @@ const ListCard: React.FC<ListCardProps> = ({
   onEdit, 
   onDelete 
 }) => {
-  const progress = list.total_items > 0 ? (list.purchased_items / list.total_items) * 100 : 0;
+  const totalItems = list.total_items || 0;
+  const purchasedItems = list.purchased_items || 0;
+  const progress = totalItems > 0 ? (purchasedItems / totalItems) * 100 : 0;
   
   return (
     <div className="card-interactive" onClick={onTap}>
@@ -613,10 +614,10 @@ const ListCard: React.FC<ListCardProps> = ({
         </div>
 
         {/* Progress Bar */}
-        {list.total_items > 0 && (
+        {totalItems > 0 && (
           <div className="mb-3">
             <div className="flex justify-between text-sm text-slate-600 mb-1">
-              <span>{list.purchased_items} de {list.total_items}</span>
+              <span>{purchasedItems} de {totalItems}</span>
               <span>{Math.round(progress)}%</span>
             </div>
             <div className="w-full bg-slate-200 rounded-full h-2">
@@ -717,7 +718,7 @@ const ListDetailScreen = ({
   listId: number; 
   onNavigate: (view: string) => void;
 }) => {
-  const [list, setList] = React.useState<List | null>(null);
+  const [list, setList] = React.useState<ShoppingList | null>(null);
   const [items, setItems] = React.useState<ListItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [sortBy, setSortBy] = React.useState('order'); // order, name, price_asc, price_desc, category
@@ -1068,10 +1069,11 @@ const ShoppingItem: React.FC<ShoppingItemProps> = ({
     <div className={`shopping-item ${item.is_purchased ? 'shopping-item-completed' : ''} ${isAnimating ? 'shopping-item-animating' : ''}`}>
       {/* Contenido principal del item */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center space-x-2 mb-1">
+        <div className="flex items-center space-x-2 mb-1 flex-wrap">
           <div className={`font-medium transition-all duration-300 ${item.is_purchased ? 'line-through text-slate-500' : 'text-slate-900'}`}>
             {item.custom_product_name || item.product_name}
           </div>
+          {item.supermarket_name && createSupermarketBadge(item.supermarket_name, item.supermarket_color, 'sm')}
           {/* Badge de categoría */}
           {item.category_name && (
             <span 
@@ -1144,26 +1146,32 @@ const ShoppingItem: React.FC<ShoppingItemProps> = ({
 const ProductsScreen = ({ 
   onNavigate 
 }: { 
-  onNavigate: (view: string) => void;
+  onNavigate: (view: string, listId?: number, productId?: number, openModal?: string) => void;
 }) => {
   const [products, setProducts] = React.useState<Product[]>([]);
   const [categories, setCategories] = React.useState<Category[]>([]);
+  const [supermarkets, setSupermarkets] = React.useState<Supermarket[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState('');
-  const [sortBy, setSortBy] = React.useState('created'); // created, name, price_asc, price_desc, category
+  const [sortBy, setSortBy] = React.useState('created');
   const [showEditProductModal, setShowEditProductModal] = React.useState(false);
   const [showNewProductModal, setShowNewProductModal] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
+  const [alternativesMap, setAlternativesMap] = React.useState<Record<string, number[]>>({});
+  const [expandedClusters, setExpandedClusters] = React.useState<Set<string>>(new Set());
 
   const loadData = async () => {
     try {
-      const [productsRes, categoriesRes] = await Promise.all([
+      const [productsResponse, categoriesRes, supermarketsRes] = await Promise.all([
         api.get('/products'),
-        api.get('/categories')
+        api.get('/categories'),
+        api.get('/supermarkets'),
       ]);
-      setProducts(productsRes.data);
+      setProducts(productsResponse.data.products);
+      setAlternativesMap(productsResponse.data.alternatives);
       setCategories(categoriesRes.data);
+      setSupermarkets(supermarketsRes.data);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -1189,6 +1197,16 @@ const ProductsScreen = ({
     } catch (error) {
       console.error('Error deleting product:', error);
     }
+  };
+
+  const toggleClusterExpansion = (clusterId: string) => {
+    const newExpanded = new Set(expandedClusters);
+    if (newExpanded.has(clusterId)) {
+      newExpanded.delete(clusterId);
+    } else {
+      newExpanded.add(clusterId);
+    }
+    setExpandedClusters(newExpanded);
   };
 
   const filteredAndSortedProducts = React.useMemo(() => {
@@ -1229,6 +1247,57 @@ const ProductsScreen = ({
 
     return sorted;
   }, [products, searchQuery, selectedCategory, sortBy]);
+
+  const productClusters = React.useMemo(() => {
+    const productMap = new Map(filteredAndSortedProducts.map(p => [p.id, p]));
+    const clusters: { id: string; mainProduct: Product; alternatives: Product[]; isCluster: boolean }[] = [];
+    const processedIds = new Set<number>();
+
+    for (const product of filteredAndSortedProducts) {
+      if (processedIds.has(product.id)) {
+        continue;
+      }
+
+      const relatedIds = new Set([product.id]);
+      const queue = [product.id];
+      processedIds.add(product.id);
+
+      while (queue.length > 0) {
+        const currentId = queue.shift()!;
+        const alternatives = alternativesMap[currentId] || [];
+        for (const altId of alternatives) {
+          if (!relatedIds.has(altId) && productMap.has(altId)) {
+            relatedIds.add(altId);
+            queue.push(altId);
+            processedIds.add(altId);
+          }
+        }
+      }
+
+      const groupProducts = Array.from(relatedIds)
+        .map(id => productMap.get(id))
+        .filter((p): p is Product => p !== undefined);
+      
+      if (groupProducts.length > 1) {
+        clusters.push({
+          id: `cluster-${groupProducts[0].id}`,
+          mainProduct: groupProducts[0],
+          alternatives: groupProducts.slice(1),
+          isCluster: true,
+        });
+      } else {
+        clusters.push({
+          id: product.id.toString(),
+          mainProduct: product,
+          alternatives: [],
+          isCluster: false,
+        });
+      }
+    }
+    
+    return clusters;
+
+  }, [filteredAndSortedProducts, alternativesMap]);
 
   if (loading) {
     return <LoadingScreen />;
@@ -1306,16 +1375,85 @@ const ProductsScreen = ({
           </div>
         </div>
 
-        {/* Products Grid */}
-        <div className="grid grid-cols-2 gap-4">
-          {filteredAndSortedProducts.map(product => (
-            <ProductCard 
-              key={product.id} 
-              product={product} 
-              onEdit={() => editProduct(product)}
-              onDelete={() => deleteProduct(product.id)}
-            />
-          ))}
+        {/* Products List with Expandable Clusters */}
+        <div className="space-y-4">
+          {productClusters.map(cluster => {
+            // Calcular todos los productos del cluster para usar en la vista expandida
+            const allProducts = cluster.isCluster ? [cluster.mainProduct, ...cluster.alternatives] : [cluster.mainProduct];
+            
+            return (
+              <div key={cluster.id} className="cluster-container">
+                <ProductCard 
+                  cluster={cluster} 
+                  onEdit={editProduct}
+                  onDelete={deleteProduct}
+                  onClick={() => {
+                    if (cluster.isCluster) {
+                      toggleClusterExpansion(cluster.id);
+                    } else {
+                      onNavigate('product-detail', undefined, cluster.mainProduct.id, undefined);
+                    }
+                  }}
+                  isExpanded={expandedClusters.has(cluster.id)}
+                />
+                
+                {/* Expanded alternatives */}
+                {cluster.isCluster && expandedClusters.has(cluster.id) && (
+                  <div className="cluster-alternatives">
+                    <div className="cluster-alternatives-header">
+                      <span className="text-sm font-medium text-slate-600">
+                        Productos del grupo ({allProducts.length})
+                      </span>
+                    </div>
+                    <div className="cluster-alternatives-grid">
+                      {allProducts.map(product => (
+                        <div 
+                          key={product.id} 
+                          className="alternative-product-card cursor-pointer"
+                          onClick={() => onNavigate('product-detail', undefined, product.id, undefined)}
+                        >
+                          <div className="alternative-product-main">
+                            <div className="product-icon-sm" style={{ backgroundColor: product.category_color || '#6b7280' }}>
+                              {product.category_icon || Icons.products}
+                            </div>
+                            <div className="alternative-product-info">
+                              <h4 className="alternative-product-name">{product.name}</h4>
+                              <div className="alternative-product-meta">
+                                {product.supermarket_name && 
+                                  createSupermarketBadge(product.supermarket_name, product.supermarket_color, 'xs')
+                                }
+                                {product.estimated_price && (
+                                  <span className="text-xs text-slate-600">
+                                    {Number(product.estimated_price).toFixed(2)}€
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="alternative-product-actions">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); editProduct(product); }} 
+                              className="btn-icon btn-xs btn-ghost"
+                              title="Editar"
+                            >
+                              {Icons.edit}
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); deleteProduct(product.id); }} 
+                              className="btn-icon btn-xs btn-ghost text-red-500"
+                              title="Eliminar"
+                            >
+                              {Icons.delete}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Empty State */}
@@ -1340,7 +1478,9 @@ const ProductsScreen = ({
       {showEditProductModal && editingProduct && (
         <EditProductModal 
           product={editingProduct}
+          allProducts={products}
           categories={categories}
+          supermarkets={supermarkets}
           onClose={() => {
             setShowEditProductModal(false);
             setEditingProduct(null);
@@ -1353,6 +1493,7 @@ const ProductsScreen = ({
       {showNewProductModal && (
         <NewProductModal 
           categories={categories}
+          supermarkets={supermarkets}
           onClose={() => setShowNewProductModal(false)}
           onSave={loadData}
         />
@@ -1361,60 +1502,175 @@ const ProductsScreen = ({
   );
 };
 
-// Product Card Component
-const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDelete }) => {
-  return (
-    <div className="card relative group">
-      {/* Botones de acción */}
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1 z-10">
-        <button
-          onClick={(e) => { e.stopPropagation(); onEdit?.(); }}
-          className="p-1 bg-white rounded-full shadow-md hover:bg-slate-50 transition-colors"
-          title="Editar producto"
-        >
-          <svg className="w-3 h-3 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete?.(); }}
-          className="p-1 bg-white rounded-full shadow-md hover:bg-red-50 transition-colors"
-          title="Eliminar producto"
-        >
-          <svg className="w-3 h-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
-      </div>
+// Product Card Component - Expandable Design
+const ProductCard: React.FC<{
+  cluster: { mainProduct: Product; alternatives: Product[]; isCluster: boolean };
+  onEdit: (product: Product) => void;
+  onDelete: (productId: number) => void;
+  onClick: () => void;
+  isExpanded?: boolean;
+}> = ({ cluster, onEdit, onDelete, onClick, isExpanded = false }) => {
+  const { mainProduct, alternatives, isCluster } = cluster;
 
-      <div className="card-content">
-        <div className="text-center mb-3">
-          <div 
-            className="w-12 h-12 rounded-xl mx-auto mb-2 flex items-center justify-center text-white text-lg"
-            style={{ backgroundColor: product.category_color || '#6366f1' }}
-          >
-            {product.category_icon || Icons.products}
+  // Para clusters, calculamos información resumida
+  const allProducts = isCluster ? [mainProduct, ...alternatives] : [mainProduct];
+  
+  // Título representativo para clusters
+  const getClusterTitle = () => {
+    if (!isCluster) return mainProduct.name;
+    
+    // Buscamos palabras comunes en los nombres de productos
+    const names = allProducts.map(p => p.name.toLowerCase());
+    const words = names[0].split(' ');
+    const commonWords = words.filter(word => 
+      word.length > 3 && // Solo palabras de más de 3 caracteres
+      names.every(name => name.includes(word))
+    );
+    
+    if (commonWords.length > 0) {
+      // Capitalizamos la primera letra de cada palabra común
+      return commonWords.map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+      ).join(' ');
+    }
+    
+    // Si no hay palabras comunes, usamos el nombre del producto principal + "alternativas"
+    return `${mainProduct.name} + alternativas`;
+  };
+
+  // Combinaciones de supermercado + precio para mostrar en filas
+  const supermarketPriceCombinations = React.useMemo(() => {
+    const combinations: Array<{ supermarket: string; color: string | null; price: number | null }> = [];
+    
+    allProducts.forEach(product => {
+      if (product.supermarket_name) {
+        // Convertir el precio antes de comparar
+        const productPrice = product.estimated_price 
+          ? (typeof product.estimated_price === 'string' 
+              ? parseFloat(product.estimated_price) 
+              : product.estimated_price)
+          : null;
+        const normalizedProductPrice = (productPrice && !isNaN(productPrice)) ? productPrice : null;
+        
+        // Buscar si ya existe esta combinación
+        const existing = combinations.find(
+          combo => combo.supermarket === product.supermarket_name && 
+                   combo.price === normalizedProductPrice
+        );
+        if (!existing) {
+          combinations.push({
+            supermarket: product.supermarket_name,
+            color: product.supermarket_color || null,
+            price: normalizedProductPrice
+          });
+        }
+      }
+    });
+    
+    // Ordenar por precio (los sin precio al final)
+    return combinations.sort((a, b) => {
+      if (a.price === null && b.price === null) return a.supermarket.localeCompare(b.supermarket);
+      if (a.price === null) return 1;
+      if (b.price === null) return -1;
+      return a.price - b.price;
+    });
+  }, [allProducts]);
+
+  // Categoría más común (para el ícono)
+  const categoryCount = allProducts.reduce((acc, p) => {
+    if (p.category_icon) {
+      acc[p.category_icon] = (acc[p.category_icon] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+  
+  const mostCommonCategory = Object.entries(categoryCount)
+    .sort(([,a], [,b]) => (b as number) - (a as number))[0];
+  
+  const displayIcon = mostCommonCategory ? mostCommonCategory[0] : Icons.products;
+  const displayColor = allProducts.find(p => p.category_color)?.category_color || '#6b7280';
+
+  return (
+    <div 
+      className={`product-card-new ${isCluster ? 'product-card-cluster' : ''} ${isExpanded ? 'product-card-expanded' : ''}`} 
+      onClick={onClick}
+    >
+      <div className="product-card-content">
+        {/* Left: Product/Cluster Icon */}
+        <div className="product-card-icon-container">
+          <div className="product-icon-new" style={{ backgroundColor: displayColor }}>
+            {displayIcon}
           </div>
-          <h3 className="font-medium text-slate-900 text-sm leading-tight">
-            {product.name}
-          </h3>
         </div>
         
-        <div className="text-center space-y-1">
-          {product.estimated_price && (
-            <div className="text-sm font-medium text-slate-900">
-              {Number(product.estimated_price).toFixed(2)}€
-            </div>
-          )}
-          <div className="text-xs text-slate-500">
-            por {product.unit}
+        {/* Center: Product/Cluster Info */}
+        <div className="product-card-info-new">
+          <div className="product-card-header">
+            <h3 className="product-name-new">{getClusterTitle()}</h3>
+            {isCluster && (
+              <div className="cluster-indicator">
+                <span className="cluster-count">{allProducts.length}</span>
+                <span className="cluster-arrow">
+                  {isExpanded ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                  )}
+                </span>
+              </div>
+            )}
           </div>
-          {product.category_name && (
-            <div className="badge badge-success text-xs">
-              {product.category_name}
-            </div>
-          )}
+          
+          <div className="product-meta-new">
+            {/* Mostrar combinaciones de supermercado + precio en filas */}
+            {supermarketPriceCombinations.length > 0 && (
+              <div className="supermarket-price-rows">
+                {supermarketPriceCombinations.slice(0, 3).map((combo, index) => (
+                  <div key={index} className="supermarket-price-row">
+                    {createSupermarketBadge(combo.supermarket, combo.color, 'xs')}
+                    <span className="price-text">
+                      {combo.price !== null && combo.price > 0 ? `${combo.price.toFixed(2)}€` : 'Sin precio'}
+                    </span>
+                  </div>
+                ))}
+                {supermarketPriceCombinations.length > 3 && (
+                  <div className="supermarket-price-row">
+                    <span className="more-items-text">+{supermarketPriceCombinations.length - 3} más...</span>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Para productos individuales sin precio, mostrar la unidad */}
+            {!isCluster && !mainProduct.estimated_price && mainProduct.unit && (
+              <span className="product-unit">por {mainProduct.unit}</span>
+            )}
+          </div>
         </div>
+        
+        {/* Right: Action buttons - Solo para productos individuales */}
+        {!isCluster && (
+          <div className="product-card-actions-new">
+            <button 
+              onClick={(e) => { e.stopPropagation(); onEdit(mainProduct); }} 
+              className="action-btn-new"
+              title="Editar producto"
+            >
+              {Icons.edit}
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); onDelete(mainProduct.id); }} 
+              className="action-btn-new action-btn-delete-new"
+              title="Eliminar producto"
+            >
+              {Icons.delete}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1430,31 +1686,6 @@ const LoadingScreen = () => (
       </div>
     </div>
   </div>
-);
-
-// Bottom Navigation Component
-const BottomNavigation: React.FC<{
-  currentScreen: 'home' | 'products' | 'list';
-  onNavigate: (view: string) => void;
-}> = ({ currentScreen, onNavigate }) => (
-  <nav className="bottom-nav">
-    <div className="flex items-center justify-around">
-      <button 
-        className={currentScreen === 'home' ? 'nav-item-active' : 'nav-item-inactive'}
-        onClick={() => onNavigate('home')}
-      >
-        <span className="nav-icon">{Icons.home}</span>
-        <span>Inicio</span>
-      </button>
-      <button 
-        className={currentScreen === 'products' ? 'nav-item-active' : 'nav-item-inactive'}
-        onClick={() => onNavigate('products')}
-      >
-        <span className="nav-icon">{Icons.products}</span>
-        <span>Productos</span>
-      </button>
-    </div>
-  </nav>
 );
 
 const EmptyState = ({ 
@@ -1645,7 +1876,8 @@ const AddItemModal = ({
           api.get('/products'),
           api.get('/categories')
         ]);
-        setProducts(productsRes.data);
+        // El endpoint /products ahora devuelve { products: [...], alternatives: {...} }
+        setProducts(productsRes.data.products || []);
         setCategories(categoriesRes.data);
       } catch (error) {
         console.error('Error loading data:', error);
@@ -1946,7 +2178,8 @@ const AddItemModal = ({
                            <div className="flex items-start justify-between">
                              <div className="flex-1">
                                <div className="font-medium text-slate-900 mb-1">{product.name}</div>
-                               <div className="flex items-center gap-2">
+                               <div className="flex items-center gap-2 flex-wrap">
+                                 {product.supermarket_name && createSupermarketBadge(product.supermarket_name, product.supermarket_color, 'sm')}
                                  {product.category_name && (
                                    <span 
                                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white"
@@ -2030,7 +2263,7 @@ const EditListModal = ({
   onClose, 
   onSave 
 }: { 
-  list: List;
+  list: ShoppingList;
   onClose: () => void; 
   onSave: () => void;
 }) => {
@@ -2201,31 +2434,55 @@ const EditItemModal = ({
 
 const EditProductModal = ({ 
   product,
+  allProducts,
   categories,
+  supermarkets,
   onClose, 
   onSave 
 }: { 
   product: Product;
+  allProducts: Product[];
   categories: Category[];
+  supermarkets: Supermarket[];
   onClose: () => void; 
   onSave: () => void;
 }) => {
   const [name, setName] = React.useState(product.name);
+  const [supermarketId, setSupermarketId] = React.useState(product.supermarket_id?.toString() || '');
   const [categoryId, setCategoryId] = React.useState(product.category_id?.toString() || '');
   const [estimatedPrice, setEstimatedPrice] = React.useState(product.estimated_price?.toString() || '');
-  const [unit, setUnit] = React.useState(product.unit || 'ud');
+  const [unit, setUnit] = React.useState(product.unit);
+  
+  const [alternatives, setAlternatives] = React.useState<Product[]>([]);
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [loadingAlts, setLoadingAlts] = React.useState(true);
+
+  React.useEffect(() => {
+    loadAlternatives();
+  }, [product.id]);
+
+  const loadAlternatives = async () => {
+    try {
+      setLoadingAlts(true);
+      const alts = await productService.getAlternatives(product.id);
+      setAlternatives(alts);
+    } catch (error) {
+      console.error("Error loading alternatives", error);
+    } finally {
+      setLoadingAlts(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!name.trim()) return;
-    
     try {
       const updatedProductData = {
         name: name.trim(),
-        category_id: categoryId ? parseInt(categoryId) : null,
-        estimated_price: estimatedPrice ? parseFloat(estimatedPrice) : null,
+        supermarket_id: supermarketId ? parseInt(supermarketId) : undefined,
+        category_id: categoryId ? parseInt(categoryId) : undefined,
+        estimated_price: estimatedPrice ? parseFloat(estimatedPrice) : undefined,
         unit: unit
       };
-
       await api.put(`/products/${product.id}`, updatedProductData);
       onSave();
       onClose();
@@ -2233,6 +2490,30 @@ const EditProductModal = ({
       console.error('Error updating product:', error);
     }
   };
+
+  const handleAddAlternative = async (altId: number) => {
+    try {
+      await productService.addAlternative(product.id, altId);
+      loadAlternatives(); // Recargar
+    } catch (error) {
+      console.error("Error adding alternative", error);
+    }
+  };
+
+  const handleRemoveAlternative = async (altId: number) => {
+    try {
+      await productService.removeAlternative(product.id, altId);
+      loadAlternatives(); // Recargar
+    } catch (error) {
+      console.error("Error removing alternative", error);
+    }
+  };
+  
+  const potentialAlternatives = allProducts.filter(p => 
+    p.id !== product.id && // No puede ser él mismo
+    !alternatives.some(alt => alt.id === p.id) && // No puede estar ya en la lista de alternativas
+    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+  ).slice(0, 5);
 
   return (
     <div className="modal-overlay slide-up">
@@ -2242,55 +2523,33 @@ const EditProductModal = ({
           <h2 className="text-lg font-semibold text-slate-900">Editar Producto</h2>
         </div>
         <div className="modal-body space-y-4">
+          {/* Formulario principal de edición */}
           <div className="form-group">
             <label className="form-label">Nombre del producto *</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="form-input"
-              placeholder="Ej: Leche"
-              autoFocus
-            />
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="form-input" />
           </div>
-          
           <div className="form-group">
-            <label className="form-label">Categoría</label>
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="form-input"
-            >
-              <option value="">Sin categoría</option>
-              {categories.map(category => (
-                <option key={category.id} value={category.id}>
-                  {category.icon} {category.name}
-                </option>
-              ))}
+            <label className="form-label">Supermercado (Opcional)</label>
+            <select value={supermarketId} onChange={e => setSupermarketId(e.target.value)} className="form-input">
+              <option value="">Ninguno</option>
+              {supermarkets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
-          
+          <div className="form-group">
+            <label className="form-label">Categoría (Opcional)</label>
+            <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className="form-input">
+              <option value="">Sin categoría</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="form-group">
               <label className="form-label">Precio estimado (€)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={estimatedPrice}
-                onChange={(e) => setEstimatedPrice(e.target.value)}
-                className="form-input"
-                placeholder="0.00"
-              />
+              <input type="number" step="0.01" min="0" value={estimatedPrice} onChange={(e) => setEstimatedPrice(e.target.value)} className="form-input"/>
             </div>
-            
             <div className="form-group">
               <label className="form-label">Unidad</label>
-              <select
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                className="form-input"
-              >
+              <select value={unit} onChange={(e) => setUnit(e.target.value)} className="form-input">
                 <option value="ud">unidad</option>
                 <option value="kg">kilogramo</option>
                 <option value="g">gramo</option>
@@ -2302,17 +2561,51 @@ const EditProductModal = ({
             </div>
           </div>
         </div>
+
+        {/* Sección de Alternativas */}
+        <div className="modal-body space-y-4 border-t border-slate-200 mt-4 pt-4">
+          <h3 className="text-md font-semibold text-slate-800">Productos Alternativos</h3>
+          
+          {loadingAlts ? <p>Cargando alternativas...</p> : (
+            <div className="space-y-2">
+              {alternatives.map(alt => (
+                <div key={alt.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-md">
+                  <span>{alt.name} ({alt.supermarket_name || 'Sin super'})</span>
+                  <button onClick={() => handleRemoveAlternative(alt.id)} className="btn-icon btn-sm btn-ghost text-red-500">
+                    {Icons.delete}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="form-group">
+            <label className="form-label">Buscar y añadir alternativa</label>
+            <input 
+              type="text" 
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="form-input" 
+              placeholder="Buscar producto para vincular..." 
+            />
+            {searchTerm && (
+              <div className="mt-2 border border-slate-200 rounded-md max-h-40 overflow-y-auto">
+                {potentialAlternatives.map(p => (
+                  <div key={p.id} className="flex items-center justify-between p-2 hover:bg-slate-50">
+                    <span>{p.name} ({p.supermarket_name || 'Sin super'})</span>
+                    <button onClick={() => handleAddAlternative(p.id)} className="btn btn-secondary btn-sm">
+                      Vincular
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="modal-footer">
-          <button className="btn-secondary flex-1" onClick={onClose}>
-            Cancelar
-          </button>
-          <button 
-            className="btn-primary flex-1" 
-            onClick={handleSave}
-            disabled={!name.trim()}
-          >
-            Guardar
-          </button>
+          <button className="btn-secondary flex-1" onClick={onClose}>Cancelar</button>
+          <button className="btn-primary flex-1" onClick={handleSave}>Guardar Cambios</button>
         </div>
       </div>
     </div>
@@ -2322,14 +2615,17 @@ const EditProductModal = ({
 // New Product Modal Component
 const NewProductModal = ({ 
   categories,
+  supermarkets,
   onClose, 
   onSave 
 }: { 
   categories: Category[];
+  supermarkets: Supermarket[];
   onClose: () => void; 
   onSave: () => void;
 }) => {
   const [name, setName] = React.useState('');
+  const [supermarketId, setSupermarketId] = React.useState('');
   const [categoryId, setCategoryId] = React.useState('');
   const [estimatedPrice, setEstimatedPrice] = React.useState('');
   const [unit, setUnit] = React.useState('ud');
@@ -2338,13 +2634,13 @@ const NewProductModal = ({
     if (!name.trim()) return;
     
     try {
-      const newProductData = {
+      const newProductData: CreateProductRequest = {
         name: name.trim(),
-        category_id: categoryId ? parseInt(categoryId) : null,
-        estimated_price: estimatedPrice ? parseFloat(estimatedPrice) : null,
+        supermarket_id: supermarketId ? parseInt(supermarketId) : undefined,
+        category_id: categoryId ? parseInt(categoryId) : undefined,
+        estimated_price: estimatedPrice ? parseFloat(estimatedPrice) : undefined,
         unit: unit
       };
-
       await api.post('/products', newProductData);
       onSave();
       onClose();
@@ -2363,53 +2659,30 @@ const NewProductModal = ({
         <div className="modal-body space-y-4">
           <div className="form-group">
             <label className="form-label">Nombre del producto *</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="form-input"
-              placeholder="Ej: Leche entera"
-              autoFocus
-            />
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="form-input" placeholder="Ej: Leche Entera Puleva" autoFocus />
           </div>
-          
           <div className="form-group">
-            <label className="form-label">Categoría</label>
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="form-input"
-            >
-              <option value="">Sin categoría</option>
-              {categories.map(category => (
-                <option key={category.id} value={category.id}>
-                  {category.icon} {category.name}
-                </option>
-              ))}
+            <label className="form-label">Supermercado (Opcional)</label>
+            <select value={supermarketId} onChange={e => setSupermarketId(e.target.value)} className="form-input">
+              <option value="">Ninguno</option>
+              {supermarkets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
-          
+          <div className="form-group">
+            <label className="form-label">Categoría (Opcional)</label>
+            <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className="form-input">
+              <option value="">Sin categoría</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="form-group">
               <label className="form-label">Precio estimado (€)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={estimatedPrice}
-                onChange={(e) => setEstimatedPrice(e.target.value)}
-                className="form-input"
-                placeholder="1.50"
-              />
+              <input type="number" step="0.01" min="0" value={estimatedPrice} onChange={(e) => setEstimatedPrice(e.target.value)} className="form-input" placeholder="1.50" />
             </div>
-            
             <div className="form-group">
               <label className="form-label">Unidad</label>
-              <select
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                className="form-input"
-              >
+              <select value={unit} onChange={(e) => setUnit(e.target.value)} className="form-input">
                 <option value="ud">unidad</option>
                 <option value="kg">kilogramo</option>
                 <option value="g">gramo</option>
@@ -2422,16 +2695,8 @@ const NewProductModal = ({
           </div>
         </div>
         <div className="modal-footer">
-          <button className="btn-secondary flex-1" onClick={onClose}>
-            Cancelar
-          </button>
-          <button 
-            className="btn-primary flex-1" 
-            onClick={handleSave}
-            disabled={!name.trim()}
-          >
-            {Icons.add} Crear Producto
-          </button>
+          <button className="btn-secondary flex-1" onClick={onClose}>Cancelar</button>
+          <button className="btn-primary flex-1" onClick={handleSave} disabled={!name.trim()}>{Icons.add} Crear Producto</button>
         </div>
       </div>
     </div>
@@ -2449,4 +2714,20 @@ root.render(
       <App />
     </AuthProvider>
   </React.StrictMode>
-); 
+);
+
+// 🚀 Registrar PWA Service Worker
+serviceWorker.register({
+  onSuccess: () => {
+    console.log('🎉 PWA: App cached and ready for offline use!');
+  },
+  onUpdate: () => {
+    console.log('🔄 PWA: New version available!');
+  },
+});
+
+// 🌐 Configurar detección de red offline/online
+serviceWorker.setupNetworkDetection();
+
+// 📱 Configurar prompt de instalación PWA
+serviceWorker.setupInstallPrompt(); 

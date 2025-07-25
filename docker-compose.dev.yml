@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      # Montamos el código fuente para el hot-reloading
+      - ./frontend:/app
+      # Evitamos que se sobreescriba node_modules con el del anfitrión
+      - /app/node_modules
+    ports:
+      # Exponemos el puerto del servidor de desarrollo de React
+      - "3000:3000"
+    environment:
+      # Necesario para que el hot-reloading de React funcione correctamente
+      - WATCHPACK_POLLING=true
+      # URL del backend para el entorno de desarrollo. Cambiado al puerto 5001.
+      - REACT_APP_API_BASE_URL=http://localhost:5001
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    volumes:
+      # Montamos el código fuente para que nodemon detecte los cambios
+      - ./backend:/app
+      # Evitamos que se sobreescriba node_modules con el del anfitrión
+      - /app/node_modules
+    ports:
+      # Exponemos el puerto del backend en el 5001 para evitar conflictos
+      - "5001:5000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-lista_compra}
+      NODE_ENV: development
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lista_compra}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      # Exponemos el puerto de la base de datos por si quieres conectarte con un cliente externo
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data: 

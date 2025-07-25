@@ -4,6 +4,7 @@ import {
   Product,
   ShoppingList,
   ListItem,
+  Supermarket,
   CreateShoppingListRequest,
   UpdateShoppingListRequest,
   CreateListItemRequest,
@@ -11,7 +12,29 @@ import {
   CreateProductRequest,
 } from '../types';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '';
+// Detectar si estamos en desarrollo local o acceso desde red
+const getApiBaseUrl = () => {
+  // Si hay variable de entorno, usarla (PRODUCCIÓN)
+  const envApiUrl = (window as any).REACT_APP_API_BASE_URL;
+  if (envApiUrl) {
+    return envApiUrl;
+  }
+  
+  // PRODUCCIÓN: Si estamos en dominio vercel.app, usar backend en Railway
+  if (window.location.hostname.includes('vercel.app')) {
+    return 'https://showcaseantonio-production.up.railway.app';
+  }
+  
+  // Si estamos en localhost, usar localhost
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:5001';
+  }
+  
+  // Si estamos en una IP de red local, usar esa IP para el backend
+  return `http://${window.location.hostname}:5001`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
@@ -44,6 +67,25 @@ api.interceptors.response.use(
   }
 );
 
+// Servicios de Supermercados
+export const supermarketService = {
+  getAll: async (): Promise<Supermarket[]> => {
+    const response = await api.get('/supermarkets');
+    return response.data;
+  },
+  create: async (supermarket: { name: string; logo_url?: string }): Promise<Supermarket> => {
+    const response = await api.post('/supermarkets', supermarket);
+    return response.data;
+  },
+  update: async (id: number, supermarket: { name: string; logo_url?: string }): Promise<Supermarket> => {
+    const response = await api.put(`/supermarkets/${id}`, supermarket);
+    return response.data;
+  },
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/supermarkets/${id}`);
+  },
+};
+
 // Servicios de Categorías
 export const categoryService = {
   getAll: async (): Promise<Category[]> => {
@@ -59,9 +101,36 @@ export const productService = {
     return response.data;
   },
 
+  getById: async (id: number): Promise<Product> => {
+    const response = await api.get(`/products/${id}`);
+    return response.data;
+  },
+
   create: async (product: CreateProductRequest): Promise<Product> => {
     const response = await api.post('/products', product);
     return response.data;
+  },
+
+  update: async (id: number, product: Partial<CreateProductRequest>): Promise<Product> => {
+    const response = await api.put(`/products/${id}`, product);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/products/${id}`);
+  },
+
+  getAlternatives: async (id: number): Promise<Product[]> => {
+    const response = await api.get(`/products/${id}/alternatives`);
+    return response.data;
+  },
+
+  addAlternative: async (productId: number, alternativeId: number): Promise<void> => {
+    await api.post(`/products/${productId}/alternatives`, { alternative_id: alternativeId });
+  },
+
+  removeAlternative: async (productId: number, alternativeId: number): Promise<void> => {
+    await api.delete(`/products/${productId}/alternatives/${alternativeId}`);
   },
 };
 

@@ -19,6 +19,26 @@ INSERT INTO categories (name, color, icon) VALUES
 ('Congelados', '#6366F1', '🧊'),
 ('Otros', '#6B7280', '📦');
 
+-- Crear tabla de supermercados
+CREATE TABLE supermarkets (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    logo_url TEXT,
+    color VARCHAR(7) DEFAULT '#6366F1',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insertar supermercados de ejemplo
+INSERT INTO supermarkets (name, logo_url, color) VALUES
+('Mercadona', 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/Mercadona_logo.svg/1200px-Mercadona_logo.svg.png', '#FF6B35'),
+('Carrefour', 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Carrefour_logo.svg/1200px-Carrefour_logo.svg.png', '#0066CC'),
+('Lidl', 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Lidl_logo.svg/1200px-Lidl_logo.svg.png', '#FFD100'),
+('Dia', 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/Dia_logo.svg/1200px-Dia_logo.svg.png', '#E30613'),
+('Alcampo', 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Alcampo.svg/1200px-Alcampo.svg.png', '#00A651');
+
+-- Asegurar que todos los supermercados tengan un color por defecto
+UPDATE supermarkets SET color = '#6366F1' WHERE color IS NULL OR color = '';
+
 -- Crear tabla de usuarios
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -32,10 +52,19 @@ CREATE TABLE users (
 CREATE TABLE products (
     id SERIAL PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
-    category_id INTEGER REFERENCES categories(id),
+    category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL, -- La categoría vuelve aquí y es opcional
+    supermarket_id INTEGER REFERENCES supermarkets(id) ON DELETE SET NULL, -- Ahora es opcional
     estimated_price DECIMAL(10,2),
     unit VARCHAR(20) DEFAULT 'unidad',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Crear tabla de alternativas de productos (relación muchos a muchos)
+CREATE TABLE product_alternatives (
+    product_a_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+    product_b_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+    PRIMARY KEY (product_a_id, product_b_id),
+    CONSTRAINT check_different_products CHECK (product_a_id <> product_b_id)
 );
 
 -- Crear tabla de listas de compra
@@ -69,8 +98,9 @@ CREATE TABLE list_items (
 -- Crear índices para mejor rendimiento
 CREATE INDEX idx_list_items_shopping_list_id ON list_items(shopping_list_id);
 CREATE INDEX idx_list_items_product_id ON list_items(product_id);
-CREATE INDEX idx_products_category_id ON products(category_id);
-CREATE INDEX idx_shopping_lists_created_at ON shopping_lists(created_at);
-CREATE INDEX idx_list_items_is_purchased ON list_items(is_purchased); 
 CREATE INDEX idx_shopping_lists_user_id ON shopping_lists(user_id); -- Índice para la nueva columna
 CREATE INDEX idx_users_username ON users(username); -- Índice para username 
+CREATE INDEX idx_products_supermarket_id ON products(supermarket_id);
+CREATE INDEX idx_products_category_id ON products(category_id); -- Se re-añade este índice
+CREATE INDEX idx_shopping_lists_created_at ON shopping_lists(created_at);
+CREATE INDEX idx_list_items_is_purchased ON list_items(is_purchased); 
