@@ -80,6 +80,7 @@ const AuthScreen = () => {
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const { login } = useAuth();
 
@@ -87,6 +88,7 @@ const AuthScreen = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
     const endpoint = isLogin ? '/auth/login' : '/auth/register';
     const payload = isLogin
@@ -101,7 +103,7 @@ const AuthScreen = () => {
         login(data.token, data.user);
       } else {
         setIsLogin(true);
-        setError('¡Registro exitoso! Ahora puedes iniciar sesión.');
+        setSuccessMessage('¡Registro exitoso! Ahora puedes iniciar sesión.');
       }
     } catch (err: any) {
       const errorMessage = err.response?.data?.error || err.message || 'Algo salió mal';
@@ -201,6 +203,9 @@ const AuthScreen = () => {
               {error && (
                 <div className="text-red-500 text-sm text-center">{error}</div>
               )}
+              {successMessage && (
+                <div className="text-emerald-600 text-sm text-center">{successMessage}</div>
+              )}
 
               <button type="submit" className="btn-primary w-full" disabled={loading}>
                 {loading ? 'Cargando...' : (isLogin ? 'Iniciar Sesión' : 'Registrarse')}
@@ -213,6 +218,7 @@ const AuthScreen = () => {
               onClick={() => {
                 setIsLogin(!isLogin);
                 setError(null);
+                setSuccessMessage(null);
               }}
               className="text-sm text-indigo-600 hover:underline"
             >
@@ -296,6 +302,8 @@ interface ShoppingItemProps {
 
 interface ProductCardProps {
   product: Product;
+  onEdit: () => void;
+  onDelete: () => void;
 }
 
 // Icons (using emoji for simplicity)
@@ -1714,6 +1722,7 @@ const AddItemModal = ({
         };
       } else {
         // Usar producto existente
+        if (!selectedProduct) return; // Añadimos esta guarda para asegurar que no es nulo
         payload = {
           product_id: selectedProduct.id,
           quantity,

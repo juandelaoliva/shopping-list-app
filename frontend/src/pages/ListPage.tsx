@@ -116,7 +116,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ onClose, onAddItem })
       onAddItem({ 
         product_id: selectedProduct.id, 
         quantity,
-        estimated_price: selectedProduct.estimated_price || null
+        estimated_price: selectedProduct.estimated_price || undefined
       });
     }
   };

@@ -11,7 +11,7 @@ import {
   CreateProductRequest,
 } from '../types';
 
-const API_BASE_URL = ''; // Se elimina la URL hardcodeada
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '';
 
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
@@ -19,6 +19,21 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Interceptor para añadir el token de autenticación a cada petición
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // Asegúrate de que el backend espera el prefijo "Bearer "
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // Interceptor para manejo de errores
 api.interceptors.response.use(
