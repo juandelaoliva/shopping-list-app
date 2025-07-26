@@ -31,6 +31,7 @@ const createSupermarketBadge = (name: string, color?: string | null) => {
 const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, onNavigate }) => {
   const [product, setProduct] = useState<Product | null>(null);
   const [alternatives, setAlternatives] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);  // Nuevo estado
   const [categories, setCategories] = useState<Category[]>([]);
   const [supermarkets, setSupermarkets] = useState<Supermarket[]>([]);
   const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
@@ -44,19 +45,26 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, on
     loadProductData();
     loadCategoriesAndSupermarkets();
     loadShoppingLists();
+    loadAllProducts();  // Cargar todos los productos
   }, [productId]);
 
   const loadProductData = async () => {
     try {
       setLoading(true);
+      setError(null);
       
       // Cargar producto principal
       const productData = await productService.getById(productId);
       setProduct(productData);
       
-      // Cargar alternativas
-      const alternativesData = await productService.getAlternatives(productId);
-      setAlternatives(alternativesData);
+      // Cargar alternativas por separado - no fallar si no hay alternativas
+      try {
+        const alternativesData = await productService.getAlternatives(productId);
+        setAlternatives(alternativesData);
+      } catch (altError) {
+        console.warn('Failed to load product alternatives:', altError);
+        setAlternatives([]); // Set empty array if alternatives fail
+      }
       
     } catch (err) {
       setError('Error al cargar el producto');
@@ -88,13 +96,23 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, on
     }
   };
 
+  const loadAllProducts = async () => {
+    try {
+      const allProductsData = await productService.getAll();
+      setAllProducts(allProductsData);
+    } catch (err) {
+      console.error('Error loading all products:', err);
+    }
+  };
+
   const handleEdit = () => {
     setShowEditModal(true);
   };
 
   const handleSaveEdit = () => {
     setShowEditModal(false);
-    loadProductData(); // Recargar datos después de editar
+    loadProductData(); // Recargar datos del producto actual
+    loadAllProducts(); // Recargar todos los productos por si se agregaron alternativas
   };
 
   const handleDelete = async () => {
@@ -352,7 +370,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({ productId, on
       {showEditModal && product && (
         <EditProductModal 
           product={product}
-          allProducts={alternatives}
+          allProducts={allProducts}
           categories={categories}
           supermarkets={supermarkets}
           onClose={() => setShowEditModal(false)}
@@ -609,7 +627,7 @@ const EditProductModal = ({
   const handleAddAlternative = async (altId: number) => {
     try {
       await productService.addAlternative(product.id, altId);
-      loadAlternatives();
+      loadAlternatives(); // Recargar alternativas del producto actual
     } catch (error) {
       console.error("Error adding alternative", error);
     }
@@ -618,7 +636,7 @@ const EditProductModal = ({
   const handleRemoveAlternative = async (altId: number) => {
     try {
       await productService.removeAlternative(product.id, altId);
-      loadAlternatives();
+      loadAlternatives(); // Recargar alternativas del producto actual  
     } catch (error) {
       console.error("Error removing alternative", error);
     }
@@ -753,14 +771,44 @@ const EditProductModal = ({
               {searchTerm && potentialAlternatives.length > 0 && (
                 <div className="space-y-2">
                   {potentialAlternatives.map((alt) => (
-                    <div key={alt.id} className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                      <span className="text-sm">{alt.name}</span>
-                      <button
-                        onClick={() => handleAddAlternative(alt.id)}
-                        className="text-indigo-600 hover:text-indigo-700 text-sm"
-                      >
-                        Agregar
-                      </button>
+                    <div key={alt.id} className="p-3 cursor-pointer border border-slate-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-colors">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="font-medium text-slate-900 mb-1">{alt.name}</div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {alt.supermarket_name && (
+                              <span 
+                                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                                style={{ 
+                                  backgroundColor: alt.supermarket_color || '#6366F1',
+                                  color: getContrastTextColor(alt.supermarket_color || '#6366F1')
+                                }}
+                              >
+                                {alt.supermarket_name}
+                              </span>
+                            )}
+                            {alt.category_name && (
+                              <span 
+                                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white"
+                                style={{ backgroundColor: alt.category_color || '#6366f1' }}
+                              >
+                                {alt.category_icon} {alt.category_name}
+                              </span>
+                            )}
+                            {alt.estimated_price && (
+                              <span className="text-xs text-slate-600 font-medium">
+                                {Number(alt.estimated_price).toFixed(2)}€/{alt.unit}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleAddAlternative(alt.id)}
+                          className="ml-3 text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                        >
+                          Agregar
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

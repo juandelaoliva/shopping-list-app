@@ -34,7 +34,7 @@ const ListItem: React.FC<ListItemProps> = ({ item, onToggle, onEdit, onDelete })
       <div className="checkbox">{item.is_purchased ? <Check size={16} /> : ''}</div>
     </button>
     <div className="item-details">
-      <p className="item-name">{item.product_name}</p>
+      <p className="item-name" style={{backgroundColor: 'red', color: 'white', fontSize: '20px', fontWeight: 'bold'}}>{item.product_name}</p>
       <p className="item-meta">
         {item.supermarket_name && createSupermarketBadge(item.supermarket_name, item.supermarket_color)}
         {`${item.quantity} ${item.unit || 'unidad'}`}
