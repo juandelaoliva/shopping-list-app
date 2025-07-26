@@ -252,6 +252,74 @@ INSERT INTO supermarkets (name, color) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- ========================================
+-- POLÍTICAS RLS PARA NUEVAS TABLAS DE GRUPOS
+-- ========================================
+
+-- 🧹 LIMPIAR POLÍTICAS EXISTENTES PARA GRUPOS DE ALTERNATIVAS
+DROP POLICY IF EXISTS "Alternative groups are publicly readable" ON alternative_groups;
+DROP POLICY IF EXISTS "Authenticated users can insert alternative groups" ON alternative_groups;
+DROP POLICY IF EXISTS "Authenticated users can update alternative groups" ON alternative_groups;
+DROP POLICY IF EXISTS "Authenticated users can delete alternative groups" ON alternative_groups;
+
+-- 🔄 POLÍTICAS PARA GRUPOS DE ALTERNATIVAS
+ALTER TABLE alternative_groups ENABLE ROW LEVEL SECURITY;
+
+-- Lectura pública
+CREATE POLICY "Alternative groups are publicly readable" 
+ON alternative_groups FOR SELECT 
+TO authenticated, anon
+USING (true);
+
+-- Escritura para usuarios autenticados
+CREATE POLICY "Authenticated users can insert alternative groups" 
+ON alternative_groups FOR INSERT 
+TO authenticated 
+WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can update alternative groups" 
+ON alternative_groups FOR UPDATE 
+TO authenticated 
+USING (true) 
+WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can delete alternative groups" 
+ON alternative_groups FOR DELETE 
+TO authenticated 
+USING (true);
+
+-- 🧹 LIMPIAR POLÍTICAS EXISTENTES PARA RELACIONES PRODUCTO-GRUPO
+DROP POLICY IF EXISTS "Product alternative groups are publicly readable" ON product_alternative_groups;
+DROP POLICY IF EXISTS "Authenticated users can insert product alternative groups" ON product_alternative_groups;
+DROP POLICY IF EXISTS "Authenticated users can update product alternative groups" ON product_alternative_groups;
+DROP POLICY IF EXISTS "Authenticated users can delete product alternative groups" ON product_alternative_groups;
+
+-- 🔗 POLÍTICAS PARA RELACIONES PRODUCTO-GRUPO
+ALTER TABLE product_alternative_groups ENABLE ROW LEVEL SECURITY;
+
+-- Lectura pública
+CREATE POLICY "Product alternative groups are publicly readable" 
+ON product_alternative_groups FOR SELECT 
+TO authenticated, anon
+USING (true);
+
+-- Escritura para usuarios autenticados
+CREATE POLICY "Authenticated users can insert product alternative groups" 
+ON product_alternative_groups FOR INSERT 
+TO authenticated 
+WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can update product alternative groups" 
+ON product_alternative_groups FOR UPDATE 
+TO authenticated 
+USING (true) 
+WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can delete product alternative groups" 
+ON product_alternative_groups FOR DELETE 
+TO authenticated 
+USING (true);
+
+-- ========================================
 -- VERIFICAR QUE TODO ESTÁ CONFIGURADO
 -- ========================================
 
@@ -265,4 +333,6 @@ BEGIN
     RAISE NOTICE '🔄 Alternativas: % políticas', (SELECT COUNT(*) FROM pg_policies WHERE tablename = 'product_alternatives');
     RAISE NOTICE '📝 Listas: % políticas', (SELECT COUNT(*) FROM pg_policies WHERE tablename = 'shopping_lists');
     RAISE NOTICE '🛒 Elementos: % políticas', (SELECT COUNT(*) FROM pg_policies WHERE tablename = 'list_items');
+    RAISE NOTICE '🎯 Grupos de alternativas: % políticas', (SELECT COUNT(*) FROM pg_policies WHERE tablename = 'alternative_groups');
+    RAISE NOTICE '🔗 Relaciones producto-grupo: % políticas', (SELECT COUNT(*) FROM pg_policies WHERE tablename = 'product_alternative_groups');
 END $$; 

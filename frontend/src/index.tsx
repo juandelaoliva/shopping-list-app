@@ -1,37 +1,41 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import SupermarketsPage from './pages/SupermarketsPage';
-import { getContrastTextColor } from './components/ColorPicker';
-import * as serviceWorker from './sw-registration'; // PWA Service Worker
-// Servicios Supabase
-import {
-  authService,
-  categoryService,
-  supermarketService,
-  productService,
-  shoppingListService
-} from './services/supabase-api';
-
-import {
-  ShoppingList,
-  ListItem,
-  Product,
-  Category,
-  Supermarket,
+import reportWebVitals from './reportWebVitals';
+import { 
+  Category, 
+  Product, 
+  ShoppingList, 
+  ListItem, 
+  Supermarket, 
   User,
-  CreateListItemRequest,
-  UpdateListItemRequest,
+  CreateProductRequest, 
   CreateShoppingListRequest,
   UpdateShoppingListRequest,
-  CreateProductRequest,
+  CreateListItemRequest,
+  UpdateListItemRequest,
+  ProductCardProps,
   ListCardProps,
-  ShoppingItemProps,
-  ProductCardProps
+  ShoppingItemProps
 } from './types';
-import BottomNavigation from './components/Layout/BottomNavigation';
+
+// Import services
+import { 
+  authService, 
+  categoryService, 
+  productService, 
+  shoppingListService, 
+  supermarketService,
+  alternativeGroupService
+} from './services/supabase-api';
+import { supabase } from './lib/supabase';
 import { Icons } from './components/Layout/Icons';
 import ProductDetailScreen from './pages/ProductDetailScreen';
+import SupermarketsPage from './pages/SupermarketsPage';
+import BottomNavigation from './components/Layout/BottomNavigation';
+import { getContrastTextColor } from './components/ColorPicker';
+import * as serviceWorker from './sw-registration';
+import { Plus } from 'lucide-react';
 
 // Helper function para crear badges de supermercados con el color correcto
 const createSupermarketBadge = (name: string, color?: string | null, size: 'xs' | 'sm' = 'sm') => {
@@ -739,7 +743,7 @@ const ListDetailScreen = ({
     try {
       const listData = await shoppingListService.getById(listId);
       setList(listData);
-      setItems(listData.list_items || []);
+      setItems(listData.items || []); // ✅ Usar los datos transformados
     } catch (error) {
       console.error('Error loading list:', error);
     } finally {
@@ -754,9 +758,9 @@ const ListDetailScreen = ({
   const toggleItem = async (itemId: number, isPurchased: boolean) => {
     if (!token) return;
     try {
-      await shoppingListService.updateItem(listId, itemId, { is_purchased: !isPurchased });
+      const updatedItem = await shoppingListService.updateItem(listId, itemId, { is_purchased: !isPurchased });
       setItems(items.map(item => 
-        item.id === itemId ? { ...item, is_purchased: !isPurchased } : item
+        item.id === itemId ? updatedItem : item // ✅ Usar datos transformados del servicio
       ));
     } catch (error) {
       console.error('Error toggling item:', error);
@@ -1078,7 +1082,7 @@ const ShoppingItem: React.FC<ShoppingItemProps> = ({
       <div className="flex-1 min-w-0">
         <div className="flex items-center space-x-2 mb-1 flex-wrap">
           <div className={`font-medium transition-all duration-300 ${item.is_purchased ? 'line-through text-slate-500' : 'text-slate-900'}`}>
-            {item.custom_product_name || item.product_name}
+            {item.product_name || item.custom_product_name || 'Producto sin nombre'}
           </div>
           {item.supermarket_name && createSupermarketBadge(item.supermarket_name, item.supermarket_color, 'sm')}
           {/* Badge de categoría */}
@@ -1170,20 +1174,49 @@ const ProductsScreen = ({
 
   const loadData = async () => {
     try {
+      // Test connection first
+      const connectionTest = await productService.testConnection();
+      
+      if (!connectionTest.success) {
+        throw new Error(`Connection failed: ${connectionTest.message}`);
+      }
+
+      // Ejecutar migración automática de alternativas a grupos
+      try {
+        await alternativeGroupService.migrateFromLegacyTable();
+      } catch (migrationError) {
+        console.warn('Migration failed, but continuing:', migrationError);
+      }
+
       const [products, categories, supermarkets] = await Promise.all([
         productService.getAll(),
         categoryService.getAll(),
         supermarketService.getAll(),
       ]);
+      
       setProducts(products);
-      // TODO: implementar carga de alternativas con Supabase
-      setAlternativesMap({});
       setCategories(categories);
       setSupermarkets(supermarkets);
+      
+      // Cargar mapa de alternativas desde Supabase
+      await loadAlternativesMap(products);
+      
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Nueva función para cargar el mapa de alternativas
+  const loadAlternativesMap = async (products: Product[]) => {
+    try {
+      // Usar la nueva función del servicio
+      const alternativesMap = await productService.getAllAlternativesMap();
+      setAlternativesMap(alternativesMap);
+    } catch (error) {
+      console.error('Error loading alternatives map:', error);
+      setAlternativesMap({});
     }
   };
 
@@ -1313,14 +1346,11 @@ const ProductsScreen = ({
 
   return (
     <>
-      {/* Mobile Header */}
+      {/* Header */}
       <header className="mobile-header">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <button 
-              className="btn-icon btn-sm btn-ghost"
-              onClick={() => onNavigate('home')}
-            >
+            <button className="btn-icon btn-sm btn-ghost" onClick={() => onNavigate('home')}>
               {Icons.back}
             </button>
             <div>
@@ -1328,12 +1358,9 @@ const ProductsScreen = ({
               <p className="text-xs text-slate-500">{products.length} productos</p>
             </div>
           </div>
-          <button 
-            className="btn btn-primary btn-sm"
-            onClick={() => setShowNewProductModal(true)}
-          >
-            {Icons.add}
-            <span className="ml-1">Crear</span>
+          <button onClick={() => setShowNewProductModal(true)} className="btn btn-primary btn-sm">
+            <Plus className="h-4 w-4 mr-1" />
+            Añadir
           </button>
         </div>
       </header>
@@ -1375,7 +1402,7 @@ const ProductsScreen = ({
               className="form-select"
             >
               <option value="created">📅 Más recientes</option>
-              <option value="name">🔤 Nombre A-Z</option>
+              <option value="name">�� Nombre A-Z</option>
               <option value="price_asc">💰 Precio ↑</option>
               <option value="price_desc">💰 Precio ↓</option>
               <option value="category">🏷️ Categoría A-Z</option>
@@ -2499,7 +2526,9 @@ const EditProductModal = ({
   const handleAddAlternative = async (altId: number) => {
     try {
       await productService.addAlternative(product.id, altId);
-      loadAlternatives(); // Recargar
+      loadAlternatives(); // Recargar alternativas del producto actual
+      // Notificar al padre para recargar todos los productos y actualizar clusters
+      if (onSave) onSave(); 
     } catch (error) {
       console.error("Error adding alternative", error);
     }
@@ -2508,7 +2537,9 @@ const EditProductModal = ({
   const handleRemoveAlternative = async (altId: number) => {
     try {
       await productService.removeAlternative(product.id, altId);
-      loadAlternatives(); // Recargar
+      loadAlternatives(); // Recargar alternativas del producto actual
+      // Notificar al padre para recargar todos los productos y actualizar clusters  
+      if (onSave) onSave();
     } catch (error) {
       console.error("Error removing alternative", error);
     }
@@ -2596,11 +2627,31 @@ const EditProductModal = ({
             {searchTerm && (
               <div className="mt-2 border border-slate-200 rounded-md max-h-40 overflow-y-auto">
                 {potentialAlternatives.map(p => (
-                  <div key={p.id} className="flex items-center justify-between p-2 hover:bg-slate-50">
-                    <span>{p.name} ({p.supermarket_name || 'Sin super'})</span>
-                    <button onClick={() => handleAddAlternative(p.id)} className="btn btn-secondary btn-sm">
-                      Vincular
-                    </button>
+                  <div key={p.id} className="p-3 cursor-pointer border-b border-slate-100 last:border-b-0 hover:bg-slate-50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="font-medium text-slate-900 mb-1">{p.name}</div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {p.supermarket_name && createSupermarketBadge(p.supermarket_name, p.supermarket_color, 'sm')}
+                          {p.category_name && (
+                            <span 
+                              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white"
+                              style={{ backgroundColor: p.category_color || '#6366f1' }}
+                            >
+                              {p.category_icon} {p.category_name}
+                            </span>
+                          )}
+                          {p.estimated_price && (
+                            <span className="text-xs text-slate-600 font-medium">
+                              {Number(p.estimated_price).toFixed(2)}€/{p.unit}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button onClick={() => handleAddAlternative(p.id)} className="ml-3 btn btn-secondary btn-sm">
+                        Vincular
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

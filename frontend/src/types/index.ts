@@ -1,15 +1,30 @@
+export interface Supermarket {
+  id: number;
+  name: string;
+  color?: string;
+  logo_url?: string;
+  created_at?: string;
+}
+
+// Nuevos tipos para grupos de alternativas
+export interface AlternativeGroup {
+  id: number;
+  name?: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductAlternativeGroup {
+  product_id: number;
+  group_id: number;
+  created_at: string;
+}
+
 export interface User {
   id: string;
   email: string;
   displayName?: string; // Display name del usuario en user_metadata de Supabase
-}
-
-export interface Supermarket {
-  id: number;
-  name: string;
-  logo_url?: string;
-  color: string;
-  created_at: string;
 }
 
 export interface Category {

@@ -251,7 +251,51 @@ INSERT INTO products (name, category_id, supermarket_id, estimated_price, unit) 
 INSERT INTO product_alternatives (product_id, alternative_product_id) VALUES
 (1, 8), -- Manzanas ↔ Pizza (ejemplo)
 (2, 3), -- Pollo ↔ Leche (ejemplo)
-(4, 5); -- Pan ↔ Detergente (ejemplo)
+(4, 5), -- Pan ↔ Detergente (ejemplo)
+(1, 2), -- Manzanas ↔ Pollo (más alternativas para mejor testing)
+(3, 6), -- Leche ↔ Coca Cola (productos similares)
+(7, 8); -- Patatas ↔ Pizza (snacks/comida rápida)
+
+-- ========================================
+-- NUEVAS TABLAS PARA GRUPOS DE ALTERNATIVAS
+-- ========================================
+
+-- Tabla de grupos de alternativas
+CREATE TABLE IF NOT EXISTS alternative_groups (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255),
+  description TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Tabla de relación productos -> grupos
+CREATE TABLE IF NOT EXISTS product_alternative_groups (
+  product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+  group_id INTEGER REFERENCES alternative_groups(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  PRIMARY KEY (product_id, group_id)
+);
+
+-- Índices para optimizar consultas
+CREATE INDEX IF NOT EXISTS idx_product_alternative_groups_product_id ON product_alternative_groups(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_alternative_groups_group_id ON product_alternative_groups(group_id);
+
+-- Función para actualizar updated_at automáticamente
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Trigger para actualizar updated_at en alternative_groups
+DROP TRIGGER IF EXISTS update_alternative_groups_updated_at ON alternative_groups;
+CREATE TRIGGER update_alternative_groups_updated_at
+    BEFORE UPDATE ON alternative_groups
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
 
 -- ========================================
 -- CONFIGURACIÓN FINAL
