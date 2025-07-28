@@ -195,7 +195,7 @@ const AuthScreen = () => {
                 </div>
               )}
               <div className="form-group">
-                <label className="form-label">{isLogin ? 'Email o Nombre de Usuario' : 'Email'}</label>
+                <label className="form-label">{isLogin ? 'Email' : 'Email'}</label>
                 <input
                   type="text"
                   value={email}
